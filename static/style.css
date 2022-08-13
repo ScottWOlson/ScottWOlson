@@ -1,0 +1,38 @@
+*,
+*:before,
+*:after {
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 1.5rem;
+  font: 1rem/1.5 'PT Sans', Arial, sans-serif;
+  color: #1c0221;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: auto;
+  align-items: center;
+}
+
+.header {
+  font-size: larger;
+}
+
+form input[type='text'] {
+  margin: 0.35rem 0;
+}
+
+.file {
+  margin: 0.35rem 0;
+}
+
+.file-label:hover .file-cta {
+  background-color: #c5c9a4;
+}
+
+.file .file-custom::after {
+  content: attr(data-filename);
+}

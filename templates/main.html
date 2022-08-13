@@ -1,0 +1,31 @@
+{% import 'macros/forms.html' as forms %}
+
+<!DOCTYPE html>
+<head>
+  <title>Housing Data Tool</title>
+  <script src="/static/index.js"></script>
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.2/css/all.min.css"
+  />
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.9.4/css/bulma.min.css"
+  />
+  <link href="/static/style.css" rel="stylesheet" type="text/css" />
+  <link
+    href="https://fonts.googleapis.com/css?family=IBM+Plex+Sans&display=swap"
+    rel="stylesheet"
+  />
+</head>
+<body>
+  <form action="/process" method="post" enctype="multipart/form-data">
+    <div class="header">Corporation Count</div>
+    <input type="hidden" name="function" value="corporation_count" />
+    {{ forms.file(name='registration', label='Choose a file...') }}
+    <input type="submit" value="Process" />
+  </form>
+  {{ forms.compare('Compare Registration CSVs', 'RegistrationContactID') }}
+  {{ forms.compare('Compare Building CSVs', 'BuildingID') }}
+  {{ forms.compare('Compare Arbitrary CSVs', 'IndexID') }}
+</body>
