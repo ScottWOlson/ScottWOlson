@@ -14,6 +14,7 @@ def register(fn):
 def corporation_count():
     file = request.files.get('registration')
     df = pd.read_csv(file)
+    df = df[df['ContactDescription'].str.upper().isin(['CO-OP', 'CONDO'])]
     df = df[['RegistrationID', 'CorporationName']].drop_duplicates()
     df = df.groupby(['CorporationName']).size().sort_values(
         ascending=False).reset_index(name='count')

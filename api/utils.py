@@ -26,7 +26,7 @@ def stringify(df):
 
 
 def load_compare_df(buffer, index):
-    df = pd.read_csv(buffer, dtype=str).drop_duplicates()
+    df = pd.read_csv(buffer).drop_duplicates()
     if index == 'RegistrationContactID':
         df = df[df['ContactDescription'].str.upper().isin(['CO-OP', 'CONDO'])]
     return df
