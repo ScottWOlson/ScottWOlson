@@ -1,40 +1,36 @@
 from csv_diff import load_csv, compare
 from flask import send_file
-from io import StringIO
-from io import BytesIO
+from io import TextIOWrapper, BytesIO
 import pandas as pd
 from os import path
 
 
 def filename(file, default=''):
-    return path.splitext(path.basename(getattr(file, 'filename', default)))[0]
+    return path.splitext(path.basename(
+        getattr(file, 'filename') or default))[0]
 
 
-def export(df, download_name):
+def bufferize(df):
     buffer = BytesIO()
-    df.to_csv(buffer, index=False, encoding='utf-8')
-    buffer.seek(0)
-    return send_file(buffer, download_name=download_name,
-                     as_attachment=True, mimetype='text/csv')
-
-
-def stringify(df):
-    buffer = StringIO()
     df.to_csv(buffer, index=False, encoding='utf-8')
     buffer.seek(0)
     return buffer
 
 
-def load_compare_df(buffer, index):
-    df = pd.read_csv(buffer).drop_duplicates()
-    if index == 'RegistrationContactID':
-        df = df[df['ContactDescription'].str.upper().isin(['CO-OP', 'CONDO'])]
-    return df
+def export(df, download_name):
+    return send_file(bufferize(df), download_name=download_name,
+                     as_attachment=True, mimetype='text/csv')
 
 
-def diff(df1, df2, index):
-    difference = compare(load_csv(stringify(df1), key=index),
-                         load_csv(stringify(df2), key=index))
+def parse_registration(file):
+    df = pd.read_csv(file)
+    df = df[df['ContactDescription'].str.upper().isin(['CO-OP', 'CONDO'])]
+    return bufferize(df)
+
+
+def diff(old_file, new_file, index):
+    difference = compare(load_csv(TextIOWrapper(old_file), key=index),
+                         load_csv(TextIOWrapper(new_file), key=index))
     changed = list(
         map(lambda row:
             {

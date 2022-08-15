@@ -1,6 +1,8 @@
+![showcase](https://user-images.githubusercontent.com/23444983/184568495-cbcf35ef-32ce-4851-8674-c837ae863b55.png)
+
 ## Vat iz thiz?!
 
-It's a utility to perform analytics on csv data. Specifically NYC [Buildings](https://data.cityofnewyork.us/Housing-Development/Buildings-Subject-to-HPD-Jurisdiction/kj4p-ruqc/data) and [Registration](https://data.cityofnewyork.us/Housing-Development/Registration-Contacts/feu5-w2e2/data) datasets. [`pandas`](https://pandas.pydata.org/) is excellent for moderate workloads like these and as such has been integrated into the backend. To make it easier for end-user to upload and export data directly from the browser, a lightweight frontend is provided using the [Flask](https://flask.palletsprojects.com/en/2.2.x/) framework. All the IO as been abstracted away with a basic rpc endpoint at `/process`, allowing you - as a developer - to simply add a form with input `name="fuction"`, `value="python-function-name"` and watch the magic unfold ✨🧝✨
+It's a utility to perform analytics on csv data. Specifically NYC [Buildings](https://data.cityofnewyork.us/Housing-Development/Buildings-Subject-to-HPD-Jurisdiction/kj4p-ruqc/data) and [Registration](https://data.cityofnewyork.us/Housing-Development/Registration-Contacts/feu5-w2e2/data) datasets. [`pandas`](https://pandas.pydata.org/) is excellent for moderate workloads like these and as such has been integrated into the backend. To make it easier for end-user to upload and export data directly from the browser, a lightweight frontend is provided using the [Flask](https://flask.palletsprojects.com/en/2.2.x/) framework. All the IO as been abstracted away with a basic rpc endpoint at `/process`, allowing you - as a stellar developer - to simply add a form with input `name="fuction"`, `value="python-function-name"` and watch the magic unfold ✨🧝✨
 
 ### Adding a new feature walkthrough
 
@@ -9,24 +11,24 @@ It's a utility to perform analytics on csv data. Specifically NYC [Buildings](ht
 1. Add the backend rpc function under `api/process.py`
    ```python
    @register
-   def row_count():
+   def count_distinct_values():
      file = request.files.get('exotic-csv')
      download_name = request.form.get('download_name')
      df = pd.read_csv(file)
-     df = distinct_value_count(df)
+     df = num_distinct_column_values(df)
      return export(df, download_name)
    ```
 2. Add the corresponding form in `templates/main.html`
    ```html
    <form action="/process" method="post" enctype="multipart/form-data">
-     <div class="header">Distint Column Values Count</div>
-     <input type="hidden" name="function" value="row_count" />
+     <div class="header">Count distinct column values</div>
+     <input type="hidden" name="function" value="count_distinct_values" />
      {{ forms.file(name='exotic-csv', label='Choose a file...') }}
      <input type="text" name="download_name" value="counting-foreva" />
      <input type="submit" value="Process" />
    </form>
    ```
-  
+
 3. Run the server using `python main.py` and head over to http://localhost:8000/ to blast away your exotic csv! 🚀 🥙
 
 ## Dataset direct links

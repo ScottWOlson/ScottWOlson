@@ -1,29 +1,28 @@
 {% macro file(name, label) %}
-  <div class="file">
-    <label class="file-label">
-      <input class="file-input" type="file" name="{{ name }}" />
-      <span class="file-cta">
-        <span class="file-icon">
-          <i class="fas fa-upload"></i>
-        </span>
-        <span class="file-label">{{ label }}</span>
+<div class="file">
+  <label class="file-label">
+    <input class="file-input" type="file" name="{{ name }}" />
+    <span class="file-cta">
+      <span class="file-icon">
+        <i class="fas fa-upload"></i>
       </span>
-    </label>
-  </div>
+      <span class="file-label">{{ label }}</span>
+    </span>
+  </label>
+</div>
 {% endmacro %}
-
 {% macro compare(header, index, label) %}
-  <form action="/process" method="post" enctype="multipart/form-data">
-    <div class="header">{{ header }}</div>
-    <input type="hidden" name="function" value="compare" />
-    {{ file(name='old', label='Choose old file...') }} 
-    {{ file(name='new', label='Choose new file...') }}
-    <input
-      type="text"
-      name="index-column"
-      value="{{ index }}"
-      title="Index column to compare against"
-    />
-    <input type="submit" value="Process" />
-  </form>
+<form action="/process" method="post" enctype="multipart/form-data">
+  <div class="header">{{ header }}</div>
+  <input type="hidden" name="function" value="compare" />
+  {{ file(name='old', label='Choose old file...') }}
+  {{ file(name='new', label='Choose new file...') }}
+  <input
+    type="text"
+    name="index-column"
+    value="{{ index }}"
+    title="Index column to compare against"
+  />
+  <input type="submit" value="Process" />
+</form>
 {% endmacro %}
