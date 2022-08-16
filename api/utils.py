@@ -1,8 +1,8 @@
-from csv_diff import load_csv, compare
-from flask import send_file
-from io import TextIOWrapper, BytesIO
 import pandas as pd
 from os import path
+from flask import send_file
+from io import TextIOWrapper, BytesIO
+from csv_diff import load_csv, compare
 
 
 def filename(file, default=''):
@@ -22,10 +22,12 @@ def export(df, download_name):
                      as_attachment=True, mimetype='text/csv')
 
 
-def parse_registration(file):
-    df = pd.read_csv(file)
-    df = df[df['ContactDescription'].str.upper().isin(['CO-OP', 'CONDO'])]
-    return bufferize(df)
+def parse_contacts(contacts, buildings):
+    dfb = pd.read_csv(buildings)
+    dfc = pd.read_csv(contacts)
+    dfc = dfc[dfc['ContactDescription'].str.upper().isin(['CO-OP', 'CONDO'])]
+    dfc = dfc.merge(dfb, on='RegistrationID', how='left')
+    return bufferize(dfc)
 
 
 def diff(old_file, new_file, index):

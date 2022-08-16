@@ -1,6 +1,7 @@
-from flask import request, abort
 import pandas as pd
-from .utils import filename, export, diff, parse_registration
+from flask import request, abort
+from .utils import filename, export, diff, parse_contacts
+
 
 RPC = dict()
 
@@ -23,6 +24,23 @@ def corporation_count():
 
 
 @register
+def compare_registration():
+    buildings_old = request.files.get('buildings-old')
+    buildings_new = request.files.get('buildings-new')
+    contacts_old = request.files.get('contacts-old')
+    contacts_new = request.files.get('contacts-new')
+
+    old_name = filename(contacts_old, 'old')
+    new_name = filename(contacts_new, 'new')
+
+    contacts_old = parse_contacts(contacts_old, buildings_old)
+    contacts_new = parse_contacts(contacts_new, buildings_new)
+
+    df = diff(contacts_old, contacts_new, 'RegistrationContactID')
+
+    return export(df, f'compare-{old_name}-{new_name}.csv')
+
+@register
 def compare():
     index = request.form.get('index-column')
     if not index:
@@ -33,10 +51,6 @@ def compare():
 
     old_name = filename(old_file, 'old')
     new_name = filename(new_file, 'new')
-
-    if index == 'RegistrationContactID':
-        old_file = parse_registration(old_file)
-        new_file = parse_registration(new_file)
 
     df = diff(old_file, new_file, index)
 

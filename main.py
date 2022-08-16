@@ -7,7 +7,7 @@ from gevent import monkey
 monkey.patch_all()
 
 
-app = Flask('HousingDataAnalytics')
+app = Flask('HousingAnalytics')
 
 compress = Compress()
 compress.init_app(app)
