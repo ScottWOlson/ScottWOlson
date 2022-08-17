@@ -36,9 +36,11 @@ def compare_registration():
     contacts_old = parse_contacts(contacts_old, buildings_old)
     contacts_new = parse_contacts(contacts_new, buildings_new)
 
-    df = diff(contacts_old, contacts_new, 'RegistrationContactID')
+    df = diff(contacts_old, contacts_new, 'hash', [
+              'RegistrationContactID', 'RegistrationID'])
 
     return export(df, f'compare-{old_name}-{new_name}.csv')
+
 
 @register
 def compare():
