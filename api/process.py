@@ -1,6 +1,6 @@
 import pandas as pd
 from flask import request, abort
-from .utils import filename, export, diff, parse_contacts
+from .utils import filename, export, diff, prepare_contacts, diff_frames, post_process_contacts
 
 
 RPC = dict()
@@ -24,22 +24,52 @@ def corporation_count():
 
 
 @register
-def compare_registration():
-    buildings_old = request.files.get('buildings-old')
-    buildings_new = request.files.get('buildings-new')
+def compare_contacts():
+    buildings = request.files.get('buildings')
     contacts_old = request.files.get('contacts-old')
     contacts_new = request.files.get('contacts-new')
 
     old_name = filename(contacts_old, 'old')
     new_name = filename(contacts_new, 'new')
 
-    contacts_old = parse_contacts(contacts_old, buildings_old)
-    contacts_new = parse_contacts(contacts_new, buildings_new)
+    index = [
+        'RegistrationContactID',
+        'RegistrationID',
+        'FirstName',
+        'MiddleInitial',
+        'LastName']
 
-    df = diff(contacts_old, contacts_new, 'hash', [
-              'RegistrationContactID', 'RegistrationID'])
+    contacts_dtypes = {'BusinessZip': 'string'}
+    contacts_old = prepare_contacts(
+        pd.read_csv(contacts_old, dtype=contacts_dtypes), index, old=True)
+    contacts_new = prepare_contacts(
+        pd.read_csv(contacts_new, dtype=contacts_dtypes), index)
 
-    return export(df, f'compare-{old_name}-{new_name}.csv')
+    dfc = diff_frames(
+        contacts_old,
+        contacts_new,
+        ignore_cols=index,
+        show_atleast=[*index, 'BusinessZip'])
+
+    if not dfc.empty:
+        buildings = pd.read_csv(
+            buildings,
+            usecols=[
+                'BuildingID',
+                'RegistrationID',
+                'LowHouseNumber',
+                'HighHouseNumber',
+                'StreetName',
+                'Zip'],
+            dtype={'BuildingID': 'Int64', 'Zip': 'string'})
+
+        dfc = post_process_contacts(
+            dfc,
+            buildings,
+            old_rids=contacts_old['RegistrationID'],
+            col_order={'first': ['ChangeType', *index], 'last': ['BusinessZip', 'Zip', 'ZipMatch']})
+
+    return export(dfc, f'compare-{old_name}-{new_name}.csv')
 
 
 @register

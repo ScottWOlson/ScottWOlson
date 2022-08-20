@@ -10,61 +10,181 @@ def filename(file, default=''):
         getattr(file, 'filename') or default))[0]
 
 
-def bufferize(df, index=False):
+def bufferize(df, ext='csv'):
     buffer = BytesIO()
-    df.to_csv(buffer, index=index, encoding='utf-8')
+    if ext == 'xlsx':
+        df.to_excel(buffer, encoding='utf-8')
+    else:
+        df.to_csv(buffer, index=False, encoding='utf-8')
     buffer.seek(0)
     return buffer
 
 
+def extension(download_name):
+    return path.splitext(download_name)[1][1:]
+
+
+mimetype = {
+    'csv': 'text/csv',
+    'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+}
+
+
 def export(df, download_name):
-    return send_file(bufferize(df), download_name=download_name,
-                     as_attachment=True, mimetype='text/csv')
+    ext = extension(download_name) or 'csv'
+    return send_file(bufferize(df, ext), download_name=download_name,
+                     as_attachment=True, mimetype=mimetype[ext])
 
 
 def hash(df, cols):
-    return pd.Index(df[cols].fillna('').astype(str).sum(axis=1), name='hash')
+    return df[cols].fillna('').astype(str).sum(axis=1)
 
 
-# concat duplicate column values when grouped by cols
-def dedup(df, cols):
-    return df if not df.shape[0] else df.groupby(cols, dropna=False).agg(
+def dedup(df, index):
+    """
+    concat duplicate column values when grouped by index
+    """
+    # split -> str groupby smaller subset -> merge back for performance
+    duplicated = df.duplicated(subset=index, keep=False)
+    dupes = df[duplicated]
+    if dupes.empty:
+        return df
+    nodupes = dupes.groupby(index, dropna=False).agg(
         lambda x: ' | '.join(x.dropna().astype(str).str.lower().drop_duplicates()
                              .sort_values())).reset_index()
+    return pd.concat([df[~duplicated], nodupes])
 
 
-def parse_contacts(contacts, buildings):
-    dfc = pd.read_csv(contacts)
+def mask_condo_coop(dfc):
+    condo_coop = dfc['ContactDescription'].str.upper().isin([
+        'CONDO', 'CO-OP'])
+    return condo_coop
+
+
+def prepare_contacts(contacts, index, old=False):
+    dfc = contacts
     # extract relevant subset
-    dfc = dfc[dfc['ContactDescription'].str.upper().isin(
-        ['CO-OP', 'CONDO'])].drop_duplicates()
+    if not old:
+        dfc = dfc[mask_condo_coop(dfc)]
 
-    cols = ['RegistrationContactID', 'RegistrationID',
-            'BusinessZip', 'FirstName', 'MiddleInitial', 'LastName']
+    dfc = dfc.drop_duplicates()
+    # concat values for duplicate index rows
+    dfc = dedup(dfc, index)
+    dfc = dfc.set_index(pd.Index(hash(dfc, index), name='hash'))
 
-    # split -> str groupby smaller subset -> merge back for performance
-    duplicated = dfc.duplicated(subset=cols, keep=False)
-    dfc = pd.concat([dfc[~duplicated], dedup(dfc[duplicated], cols)])
-
-    dfb = pd.read_csv(buildings)
-    dfc = dfc.merge(dfb, on='RegistrationID', how='left')
-
-    # because merge will add rows since RegistrationID repeats in buildings
-    cols.append('BuildingID')
-    dfc = dfc.set_index(hash(dfc, cols))
-
-    return bufferize(dfc, index=True)
+    return dfc
 
 
-def diff(old_file, new_file, index, keep_cols):
+def index_changes(odf, ndf):
+    index_name = ndf.index.name or 'index'
+    changes = pd.DataFrame(
+        ndf.index,
+        columns=[index_name]).merge(
+        pd.DataFrame(
+            odf.index,
+            columns=[index_name]),
+        on=index_name,
+        how='outer',
+        indicator=True)
+    changes = changes.rename(columns={'_merge': 'ChangeType'})
+    changes['ChangeType'] = changes['ChangeType'].map(
+        {'left_only': 'added', 'both': 'changed', 'right_only': 'removed'})
+    return changes.set_index(index_name)
+
+
+def diff_frames(odf, ndf, ignore_cols=[], show_atleast=[]):
+    """
+    Compare dataframes with identical columns on index
+
+    Parameters
+    ----------
+    ignore_cols : list
+        columns to ignore from comparison
+    show_atleast : list
+        show atleast these columns even when no change
+    """
+    cdf = index_changes(odf, ndf)
+
+    removed = cdf['ChangeType'] == 'removed'
+    keep = mask_condo_coop(odf[removed])
+    removed = odf[pd.Series(keep, odf.index).fillna(False)]
+
+    added = ndf[cdf['ChangeType'] == 'added']
+
+    changed = cdf['ChangeType'] == 'changed'
+    changed = changed.index[changed]
+    subset = ndf.columns.difference(ignore_cols)
+    changed = odf.loc[changed, subset].compare(
+        ndf.loc[changed, subset]).convert_dtypes()
+
+    changed.columns = changed.columns.set_levels(['new', 'old'], level=1)
+
+    changed_cols = changed.columns.levels[0]
+
+    for col in show_atleast:
+        if col not in changed_cols:
+            changed[col] = ndf.loc[changed.index, col]
+
+    # convert to multiindex for concatenation
+    added.columns = added.columns.map(
+        lambda c:
+        (c, 'new') if c in changed_cols else (c, ''))
+    removed.columns = removed.columns.map(
+        lambda c:
+        (c, 'old') if c in changed_cols else (c, ''))
+
+    combined = pd.concat([changed, added, removed]).dropna(
+        how='all', axis=1)
+    combined.columns = combined.columns.remove_unused_levels()
+
+    combined['ChangeType'] = cdf.loc[combined.index, 'ChangeType']
+
+    return combined
+
+
+def post_process_contacts(contacts, buildings, old_rids, col_order={}):
+    dfc = contacts
+
+    # detect new-buildings
+    added = dfc['ChangeType'] == 'added'
+    new_rids = ~dfc.loc[added, 'RegistrationID'].isin(old_rids)
+    dfc['ChangeType'] = dfc['ChangeType'].cat.add_categories('new-building')
+    dfc.loc[pd.Series(new_rids, dfc.index).fillna(
+        False), 'ChangeType'] = 'new-building'
+
+    # merge buildings info
+    buildings.columns = buildings.columns.map(lambda c: (c, ''))
+    dfc = dfc.merge(buildings, on='RegistrationID', how='left')
+
+    # zip match
+    zip_match_mask = None
+    if ('BusinessZip', '') in dfc.columns:
+        zip_match_mask = dfc['BusinessZip'] == dfc['Zip']
+    else:
+        zip_match_mask = (dfc[('BusinessZip', 'new')] == dfc['Zip']) | (
+            dfc[('BusinessZip', 'old')] == dfc['Zip'])
+    dfc.loc[zip_match_mask, 'ZipMatch'] = 'Y'
+
+    # rearrange columns
+    first = col_order.get('first') or []
+    last = col_order.get('last') or []
+    columns = first + [*dfc.columns.levels[0].difference(first + last)] + last
+    dfc = dfc.reindex(columns=columns, level=0)
+
+    return dfc
+
+
+def diff(old_file, new_file, index=None, show_atleast=None):
+    if not show_atleast and index:
+        show_atleast = [index]
     difference = compare(load_csv(TextIOWrapper(old_file), key=index),
                          load_csv(TextIOWrapper(new_file), key=index),
-                         show_unchanged=True)
+                         show_unchanged=bool(show_atleast))
     changed = list(
         map(lambda row:
             {
                 'ChangeType': 'changed',
-                **{col: row['unchanged'][col] for col in keep_cols},
+                **{col: row['unchanged'][col] for col in show_atleast},
                 **{
                     col: ' -> '.join(change) for col, change in row['changes'].items()
                 }
