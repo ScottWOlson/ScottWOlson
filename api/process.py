@@ -1,6 +1,13 @@
 import pandas as pd
 from flask import request, abort
-from .utils import filename, export, diff, prepare_contacts, diff_frames, post_process_contacts
+from .utils import (
+    diff,
+    export,
+    filename,
+    diff_frames,
+    condo_coop_mask,
+    prepare_contacts,
+    post_process_contacts)
 
 
 RPC = dict()
@@ -15,7 +22,7 @@ def register(fn):
 def corporation_count():
     file = request.files.get('registration')
     df = pd.read_csv(file)
-    df = df[df['ContactDescription'].str.upper().isin(['CO-OP', 'CONDO'])]
+    df = df[condo_coop_mask(df)]
     df = df[['RegistrationID', 'CorporationName']].drop_duplicates()
     df = df.groupby(['CorporationName']).size().sort_values(
         ascending=False).reset_index(name='count')
@@ -49,7 +56,8 @@ def compare_contacts():
         contacts_old,
         contacts_new,
         ignore_cols=index,
-        show_atleast=[*index, 'BusinessZip'])
+        show_atleast=[*index, 'BusinessZip']
+        removed_mask=condo_coop_mask)
 
     if not dfc.empty:
         buildings = pd.read_csv(

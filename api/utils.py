@@ -3,6 +3,7 @@ from os import path
 from flask import send_file
 from io import TextIOWrapper, BytesIO
 from csv_diff import load_csv, compare
+from typing import Callable
 
 
 def filename(file, default=''):
@@ -55,7 +56,7 @@ def dedup(df, index):
     return pd.concat([df[~duplicated], nodupes])
 
 
-def mask_condo_coop(dfc):
+def condo_coop_mask(dfc):
     condo_coop = dfc['ContactDescription'].str.upper().isin([
         'CONDO', 'CO-OP'])
     return condo_coop
@@ -65,7 +66,7 @@ def prepare_contacts(contacts, index, old=False):
     dfc = contacts
     # extract relevant subset
     if not old:
-        dfc = dfc[mask_condo_coop(dfc)]
+        dfc = dfc[condo_coop_mask(dfc)]
 
     dfc = dfc.drop_duplicates()
     # concat values for duplicate index rows
@@ -92,22 +93,29 @@ def index_changes(odf, ndf):
     return changes.set_index(index_name)
 
 
-def diff_frames(odf, ndf, ignore_cols=[], show_atleast=[]):
+def diff_frames(odf: pd.DataFrame, ndf: pd.DataFrame,
+                ignore_cols:list[str] = [], show_atleast: list[str] = [],
+                removed_mask: Callable[[pd.DataFrame], pd.Series] = None):
     """
     Compare dataframes with identical columns on index
 
     Parameters
     ----------
-    ignore_cols : list
-        columns to ignore from comparison
-    show_atleast : list
-        show atleast these columns even when no change
+    odf          : old dataframe
+    ndf          : new dataframe
+    ignore_cols  : columns to ignore from comparison
+    show_atleast : show atleast these columns even when no change
+    removed_mask : accepts removed rows as dataframe and
+        retuns identically indexed boolean mask for rows to keep
+
     """
     cdf = index_changes(odf, ndf)
 
     removed = cdf['ChangeType'] == 'removed'
-    keep = mask_condo_coop(odf[removed])
-    removed = odf[pd.Series(keep, odf.index).fillna(False)]
+    if removed_mask:
+        removed = removed_mask(odf[removed])
+        removed = pd.Series(removed, odf.index).fillna(False)
+    removed = odf[removed]
 
     added = ndf[cdf['ChangeType'] == 'added']
 
