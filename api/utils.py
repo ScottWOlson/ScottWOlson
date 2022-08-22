@@ -6,6 +6,24 @@ from csv_diff import load_csv, compare
 from typing import Callable
 
 
+def read_csv(file, default_dtype=None, dtype=None, lower_case=False, **kwargs):
+    if default_dtype:
+        header = pd.read_csv(file, nrows=0)
+        file.seek(0)
+        dtype = dict.fromkeys(
+            header.columns.difference(
+                dtype.keys()), default_dtype)
+
+    df = pd.read_csv(file, dtype=dtype, **kwargs)
+
+    if lower_case:
+        for col, dtype in df.dtypes.items():
+            if (dtype == 'string') or (dtype == 'object'):
+                df[col] = df[col].astype('string').str.lower()
+
+    return df
+
+
 def filename(file, default=''):
     return path.splitext(path.basename(
         getattr(file, 'filename') or default))[0]
@@ -38,7 +56,7 @@ def export(df, download_name):
 
 
 def hash(df, cols):
-    return df[cols].fillna('').astype(str).sum(axis=1)
+    return df[cols].fillna('').astype('string').sum(axis=1)
 
 
 def dedup(df, index):
@@ -56,9 +74,9 @@ def dedup(df, index):
     return pd.concat([df[~duplicated], nodupes])
 
 
-def condo_coop_mask(dfc):
-    condo_coop = dfc['ContactDescription'].str.upper().isin([
-        'CONDO', 'CO-OP'])
+def condo_coop_mask(df):
+    condo_coop = df['ContactDescription'].str.lower().isin([
+        'condo', 'co-op'])
     return condo_coop
 
 
@@ -94,7 +112,7 @@ def index_changes(odf, ndf):
 
 
 def diff_frames(odf: pd.DataFrame, ndf: pd.DataFrame,
-                ignore_cols:list[str] = [], show_atleast: list[str] = [],
+                ignore_cols: list[str] = [], show_atleast: list[str] = [],
                 removed_mask: Callable[[pd.DataFrame], pd.Series] = None):
     """
     Compare dataframes with identical columns on index
@@ -150,7 +168,8 @@ def diff_frames(odf: pd.DataFrame, ndf: pd.DataFrame,
     return combined
 
 
-def post_process_contacts(contacts, buildings, old_rids, col_order={}):
+def post_process_contacts(contacts: pd.DataFrame,
+                          buildings, old_rids, col_order={}):
     dfc = contacts
 
     # detect new-buildings
@@ -177,7 +196,7 @@ def post_process_contacts(contacts, buildings, old_rids, col_order={}):
     first = col_order.get('first') or []
     last = col_order.get('last') or []
     columns = first + [*dfc.columns.levels[0].difference(first + last)] + last
-    dfc = dfc.reindex(columns=columns, level=0)
+    dfc = dfc.reindex(columns=columns, level=0, copy=False)
 
     return dfc
 

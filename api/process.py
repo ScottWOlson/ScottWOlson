@@ -3,6 +3,7 @@ from flask import request, abort
 from .utils import (
     diff,
     export,
+    read_csv,
     filename,
     diff_frames,
     condo_coop_mask,
@@ -21,7 +22,11 @@ def register(fn):
 @register
 def corporation_count():
     file = request.files.get('registration')
-    df = pd.read_csv(file)
+    dtype = {
+        'RegistrationID': 'Int64',
+        'CorporationName': 'string',
+        'ContactDescription': 'string'}
+    df = read_csv(file, usecols=list(dtype.keys()), dtype=dtype)
     df = df[condo_coop_mask(df)]
     df = df[['RegistrationID', 'CorporationName']].drop_duplicates()
     df = df.groupby(['CorporationName']).size().sort_values(
@@ -46,21 +51,38 @@ def compare_contacts():
         'MiddleInitial',
         'LastName']
 
-    contacts_dtypes = {'BusinessZip': 'string'}
+    read_contacts_args = {
+        'default_dtype': 'string',
+        'dtype': {
+            'RegistrationContactID': 'Int64',
+            'RegistrationID': 'Int64'},
+        'lower_case': True
+    }
     contacts_old = prepare_contacts(
-        pd.read_csv(contacts_old, dtype=contacts_dtypes), index, old=True)
+        read_csv(
+            contacts_old,
+            **read_contacts_args),
+        index,
+        old=True)
     contacts_new = prepare_contacts(
-        pd.read_csv(contacts_new, dtype=contacts_dtypes), index)
+        read_csv(
+            contacts_new,
+            **read_contacts_args),
+        index)
+
+    # copy not necessary at this point but
+    # in case diff alters contacts df in future
+    old_rids = contacts_old['RegistrationID'].copy()
 
     dfc = diff_frames(
         contacts_old,
         contacts_new,
         ignore_cols=index,
-        show_atleast=[*index, 'BusinessZip']
+        show_atleast=[*index, 'BusinessZip'],
         removed_mask=condo_coop_mask)
 
     if not dfc.empty:
-        buildings = pd.read_csv(
+        buildings = read_csv(
             buildings,
             usecols=[
                 'BuildingID',
@@ -74,7 +96,7 @@ def compare_contacts():
         dfc = post_process_contacts(
             dfc,
             buildings,
-            old_rids=contacts_old['RegistrationID'],
+            old_rids=old_rids,
             col_order={'first': ['ChangeType', *index], 'last': ['BusinessZip', 'Zip', 'ZipMatch']})
 
     return export(dfc, f'compare-{old_name}-{new_name}.csv')
