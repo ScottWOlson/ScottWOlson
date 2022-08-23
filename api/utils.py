@@ -17,9 +17,10 @@ def read_csv(file, default_dtype=None, dtype=None, lower_case=False, **kwargs):
     df = pd.read_csv(file, dtype=dtype, **kwargs)
 
     if lower_case:
-        for col, dtype in df.dtypes.items():
-            if (dtype == 'string') or (dtype == 'object'):
-                df[col] = df[col].astype('string').str.lower()
+        df = df.apply(
+            lambda col: col.astype('string').str.lower() if (
+                col.dtype == 'string') or (
+                col.dtype == 'object') else col)
 
     return df
 
@@ -112,7 +113,7 @@ def index_changes(odf, ndf):
 
 
 def diff_frames(odf: pd.DataFrame, ndf: pd.DataFrame,
-                ignore_cols = [], show_atleast = [],
+                ignore_cols=[], show_atleast=[],
                 removed_mask: Callable[[pd.DataFrame], pd.Series] = None):
     """
     Compare dataframes with identical columns on index
@@ -188,8 +189,7 @@ def post_process_contacts(contacts: pd.DataFrame,
     if ('BusinessZip', '') in dfc.columns:
         zip_match_mask = dfc['BusinessZip'] == dfc['Zip']
     else:
-        zip_match_mask = (dfc[('BusinessZip', 'new')] == dfc['Zip']) | (
-            dfc[('BusinessZip', 'old')] == dfc['Zip'])
+        zip_match_mask = dfc[('BusinessZip', 'new')] == dfc['Zip']
     dfc.loc[zip_match_mask, 'ZipMatch'] = 'Y'
 
     # rearrange columns

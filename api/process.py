@@ -52,11 +52,11 @@ def compare_contacts():
         'LastName']
 
     read_contacts_args = {
-        'default_dtype': 'string',
+        # 'default_dtype': 'string',
         'dtype': {
             'RegistrationContactID': 'Int64',
             'RegistrationID': 'Int64'},
-        'lower_case': True
+        # 'lower_case': True
     }
     contacts_old = prepare_contacts(
         read_csv(
@@ -99,7 +99,7 @@ def compare_contacts():
             old_rids=old_rids,
             col_order={'first': ['ChangeType', *index], 'last': ['BusinessZip', 'Zip', 'ZipMatch']})
 
-    return export(dfc, f'compare-{old_name}-{new_name}.csv')
+    return export(dfc, f'compare-{old_name}-{new_name}.xlsx')
 
 
 @register
