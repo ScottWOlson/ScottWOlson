@@ -27,10 +27,9 @@
   </form>
   <form action="/process" method="post" enctype="multipart/form-data">
     <div class="header">Compare Registrations</div>
-    <input type="hidden" name="function" value="compare_registration" />
-    {{ forms.file(name='buildings-old', label='Choose old buildings file...') }}
+    <input type="hidden" name="function" value="compare_contacts" />
+    {{ forms.file(name='buildings', label='Choose buildings file...') }}
     {{ forms.file(name='contacts-old', label='Choose old contacts file...') }}
-    {{ forms.file(name='buildings-new', label='Choose new buildings file...') }}
     {{ forms.file(name='contacts-new', label='Choose new contacts file...') }}
     <input type="submit" value="Process" />
   </form>
