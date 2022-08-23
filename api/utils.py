@@ -112,7 +112,7 @@ def index_changes(odf, ndf):
 
 
 def diff_frames(odf: pd.DataFrame, ndf: pd.DataFrame,
-                ignore_cols: list[str] = [], show_atleast: list[str] = [],
+                ignore_cols = [], show_atleast = [],
                 removed_mask: Callable[[pd.DataFrame], pd.Series] = None):
     """
     Compare dataframes with identical columns on index
