@@ -4,3 +4,4 @@ gevent
 openpyxl
 csv-diff
 flask_compress
+thefuzz[speedup]

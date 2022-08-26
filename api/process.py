@@ -1,4 +1,3 @@
-import pandas as pd
 from flask import request, abort
 from .utils import (
     diff,
@@ -30,6 +29,10 @@ def corporation_count():
     df = read_csv(file, usecols=list(dtype.keys()), dtype=dtype)
     df = df[condo_coop_mask(df)]
     df = df[['RegistrationID', 'CorporationName']].drop_duplicates()
+
+    # sorting has added benefit of optimizing fuzzyfy:
+    # assuming names that repeat most often also contain the largest
+    # number of spelling errors.
     df = df.groupby(['CorporationName']).size().sort_values(
         ascending=False).reset_index(name='Count')
 
@@ -37,7 +40,7 @@ def corporation_count():
     if likeness:
         df = fuzzyfy(df, likeness)
     return export(
-        df, f'corporation-count-{filename(file, "registration")}.csv')
+        df, f'corporation-count-{filename(file, "registration")}-{likeness}.csv')
 
 
 @register
@@ -57,11 +60,11 @@ def compare_contacts():
         'LastName']
 
     read_contacts_args = {
+        # 'lower_case': True
         # 'default_dtype': 'string',
         'dtype': {
             'RegistrationContactID': 'Int64',
             'RegistrationID': 'Int64'},
-        # 'lower_case': True
     }
     contacts_old = prepare_contacts(
         read_csv(
