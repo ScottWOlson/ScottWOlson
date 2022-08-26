@@ -3,6 +3,7 @@ from flask import request, abort
 from .utils import (
     diff,
     export,
+    fuzzyfy,
     read_csv,
     filename,
     diff_frames,
@@ -30,7 +31,11 @@ def corporation_count():
     df = df[condo_coop_mask(df)]
     df = df[['RegistrationID', 'CorporationName']].drop_duplicates()
     df = df.groupby(['CorporationName']).size().sort_values(
-        ascending=False).reset_index(name='count')
+        ascending=False).reset_index(name='Count')
+
+    likeness = int(request.form.get('likeness') or 0)
+    if likeness:
+        df = fuzzyfy(df, likeness)
     return export(
         df, f'corporation-count-{filename(file, "registration")}.csv')
 

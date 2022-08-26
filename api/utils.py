@@ -3,6 +3,7 @@ from os import path
 from flask import send_file
 from io import TextIOWrapper, BytesIO
 from csv_diff import load_csv, compare
+from thefuzz import (fuzz, process)
 from typing import Callable
 
 
@@ -54,6 +55,90 @@ def export(df, download_name):
     ext = extension(download_name) or 'csv'
     return send_file(bufferize(df, ext), download_name=download_name,
                      as_attachment=True, mimetype=mimetype[ext])
+
+
+def fuzzyfy(df, likeness):
+    """
+
+    Grouby and sum Count of fuzzyfied names:
+    - names are pre-processed using token sort.
+    - grouped together based on `likeness` factor.
+    - finally, their Count is aggregated as FuzzyCount.
+
+    Complexity:
+        Each iteration removes matched names from comparison.
+        Let k be the maximum group size for a given likeness,
+        and n be the number of names.
+        If every group is of size k, we arrive at a lower-bound
+        of O(n²/2k). Any other distribution of group sizes performs worse
+        with left skewed ones approaching O(n²)
+
+    Parameters
+    ----------
+    df        : dataframe with Name: string, Count: number columns
+    likeness  : between 0-100; names to be considered within the same group,
+                if they are `likeness` percent similar
+
+    Returns
+    -------
+    dataframe with FuzzyName, FuzzyCount, Name, Count columns
+
+    """
+
+    def process_name(s):
+        processed = fuzz._process_and_sort(s, True)
+        return processed if processed else s
+
+    name_col, count_col = df.columns
+    df['processed'] = df[name_col].apply(process_name)
+    # we got memory but not time! 🏃
+    compare = dict(df['processed'])
+    values = list(df.values)
+    for val in values:
+        # ignore if already processed
+        if isinstance(val, tuple):
+            continue
+        matches = process.extractBests(
+            val[2],
+            compare,
+            processor=None,
+            scorer=fuzz.ratio,
+            score_cutoff=likeness,
+            limit=None)
+        for (_, _, key) in matches:
+            fuzzy_name = val[0]
+            name = values[key][0]
+            count = values[key][1]
+            values[key] = (fuzzy_name, name, count)
+            compare.pop(key, None)
+
+    fuzzy_name_col = f'Fuzzy{name_col}'
+    fuzzy_count_col = f'Fuzzy{count_col}'
+    df = pd.DataFrame(
+        values,
+        columns=[
+            fuzzy_name_col,
+            name_col,
+            count_col]).set_index(name_col).convert_dtypes()
+    df[fuzzy_count_col] = df.groupby(fuzzy_name_col).agg(
+        {count_col: 'sum'})[count_col]
+    df = df.set_index(fuzzy_name_col, append=True)
+
+    def sort(key):
+        name = key[0]
+        count = df.at[key, count_col]
+        fuzzy_name = key[1]
+        fuzzy_count = df.at[(fuzzy_name, fuzzy_name), fuzzy_count_col]
+        break_tie_eq_fzname_fzcount = fuzzy_count + 1 if fuzzy_name == name else count
+        return (fuzzy_count, fuzzy_name, break_tie_eq_fzname_fzcount, name)
+
+    df = df.loc[sorted(df.index.values, key=sort, reverse=True)].reset_index()
+    order = [fuzzy_name_col, fuzzy_count_col]
+    df = df.reindex(
+        columns=order + [*df.columns.difference(order)], copy=False)
+    df.loc[df[fuzzy_count_col].isna(), fuzzy_name_col] = pd.NA
+
+    return df
 
 
 def hash(df, cols):
