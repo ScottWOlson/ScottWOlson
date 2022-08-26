@@ -20,9 +20,18 @@
 </head>
 <body>
   <form action="/process" method="post" enctype="multipart/form-data">
-    <div class="header">Corporation Count</div>
+    <div class="header">Fuzzy Corporation Count</div>
     <input type="hidden" name="function" value="corporation_count" />
-    {{ forms.file(name='registration', label='Choose a file...') }}
+    {{ forms.file(name='registration', label='Choose a contacts file...') }}
+    <label for="likeness">Likeness</label>
+    <input
+      min="0"
+      max="100"
+      value="90"
+      type="number"
+      name="likeness"
+      title="Value between 0-100. For e.g. 90 will group together names that are 90% similar"
+    /><br>
     <input type="submit" value="Process" />
   </form>
   <form action="/process" method="post" enctype="multipart/form-data">
@@ -39,7 +48,6 @@
     {{ forms.file(name='old', label='Choose old file...') }}
     {{ forms.file(name='new', label='Choose new file...') }}
     <input
-      type="text"
       name="index-column"
       value="IndexID"
       title="Index column to compare against"

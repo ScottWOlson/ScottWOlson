@@ -30,3 +30,7 @@ form input[type='text'] {
 .file-label:hover .file-cta {
   background-color: #c5c9a4;
 }
+
+input:not([type="file"]) {
+  margin: 0.35rem 0;
+}
