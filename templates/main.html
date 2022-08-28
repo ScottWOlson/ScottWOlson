@@ -23,13 +23,13 @@
     <div class="header">Fuzzy Corporation Count</div>
     <input type="hidden" name="function" value="corporation_count" />
     {{ forms.file(name='registration', label='Choose a contacts file...') }}
-    <label for="likeness">Likeness</label>
+    <label for="similarity">Similarity</label>
     <input
       min="0"
       max="100"
       value="90"
       type="number"
-      name="likeness"
+      name="similarity"
       title="Value between 0-100. For e.g. 90 will group together names that are 90% similar"
     /><br>
     <input type="submit" value="Process" />

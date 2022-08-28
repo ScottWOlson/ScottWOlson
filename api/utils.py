@@ -3,7 +3,8 @@ from os import path
 from flask import send_file
 from io import TextIOWrapper, BytesIO
 from csv_diff import load_csv, compare
-from thefuzz import fuzz, process
+from rapidfuzz import fuzz, process
+from rapidfuzz.utils import default_process as rapidfuzz_process
 from typing import Callable
 
 
@@ -57,26 +58,39 @@ def export(df, download_name):
                      as_attachment=True, mimetype=mimetype[ext])
 
 
-def fuzzyfy(df, likeness=90):
+def fuzzyfy(df, similarity=90):
     """
     Grouby and sum Count of fuzzyfied names:
     - names are pre-processed using token sort.
-    - grouped together based on `likeness` factor.
+    - grouped together based on `similarity` factor.
     - finally, their Count is aggregated as FuzzyCount.
 
     Complexity:
         Each iteration removes matched names from comparison.
-        Let k be the maximum group size for a given likeness,
+        Let k be the maximum group size for a given similarity,
         and n be the number of names.
         If every group is of size k, we arrive at a lower-bound
         of O(n²/2k). Any other distribution of group sizes performs worse
         with left skewed ones approaching O(n²)
 
+    Existence of a better than quadratic time algorithm:
+        Consider sorting as an example: If you know b is less than
+        remainder of the list, and a < b, you're wasting cycles comparing
+        a with remainder of the list. Hence why, sorting can be optimally
+        performed in O(n·log(n)). Similar principle applies here,
+        if you can conclusively prove, that checking a particular subset of discarded
+        ratios from previous iterations leads to a worse similarity score,
+        the time complexity may be substantially improved.
+        Indel/Levenshtein edit distancing is a lossy operation by nature
+        but, perhaps a upper bound exists to help filter similar ratios
+        for successive iterations. With the right ordering of names, exponential decay
+        of comparison input size will result in a different function class altogether!
+
     Parameters
     ----------
     df        : dataframe with Name: string, Count: number columns
-    likeness  : between 0-100; names to be considered within the same group,
-                if they are `likeness` percent similar
+    similarity  : number between 0-100; names to be considered within the same group,
+                if they are `similarity` percent match
 
     Returns
     -------
@@ -84,55 +98,48 @@ def fuzzyfy(df, likeness=90):
 
     """
     def process_name(s):
-        processed = fuzz._process_and_sort(s, True)
-        return processed if processed else s
+        processed = rapidfuzz_process(s)
+        return " ".join(sorted(processed.split())) if processed else s
 
-    name_col = df.columns[0]
+    name_col, count_col = df.columns
     # we got memory but no time! 🏃
     compare = dict(df[name_col].apply(process_name))
-    values = list(df.values)
-    for k, val in enumerate(values):
+    rows = list(df.values)
+
+    for k, row in enumerate(rows):
         # ignore if already processed
-        if isinstance(val, tuple):
+        if isinstance(row, tuple):
             continue
-        matches = process.extractBests(
+
+        matches = process.extract(
             compare[k],
             compare,
+            limit=None,
             processor=None,
             scorer=fuzz.ratio,
-            score_cutoff=likeness,
-            limit=None)
-        fuzzy_count = 0
-        fuzzy_name = val[0]
-        for (_, _, key) in matches:
-            fuzzy_name = val[0]
-            name = values[key][0]
-            count = values[key][1]
-            values[key] = (k, pd.NA, pd.NA, name, count)
+            score_cutoff=similarity)
 
+        fuzzy_count = 0
+        fuzzy_name = row[0]
+        for (_, score, key) in matches:
+            name, count = rows[key]
+            rows[key] = (pd.NA, pd.NA, name, count, score, k)
             fuzzy_count += count
             compare.pop(key, None)
 
-        values[k] = (
-            k,
-            fuzzy_name,
-            fuzzy_count,
-            values[k][3],
-            values[k][4])
+        # set fuzzy name row
+        rows[k] = (fuzzy_name, fuzzy_count) + rows[k][2:]
 
-    def sort(val):
-        key = val[0]
-        name = val[3]
-        count = val[4]
-        fuzzy_name = values[key][1]
-        fuzzy_count = values[key][2]
+    def sort(row):
+        name, count, score, key = row[2:]
+        fuzzy_name, fuzzy_count = rows[key][0:2]
         break_tie_eq_fzname_fzcount = fuzzy_count + 1 if fuzzy_name == name else count
-        return (fuzzy_count, fuzzy_name, break_tie_eq_fzname_fzcount, name)
+        return (fuzzy_count, fuzzy_name,
+                break_tie_eq_fzname_fzcount, score, name)
 
-    return pd.DataFrame(sorted(values, key=sort, reverse=True), columns=[
-                        'key',
-                        'FuzzyCorpName', 'FuzzyCount',
-                        'CorporationName', 'Count']).drop('key', axis=1)
+    return pd.DataFrame(sorted(rows, key=sort, reverse=True), columns=[
+                        f'Fuzzy{name_col}', f'Fuzzy{count_col}',
+                        name_col, count_col, 'Similarity', 'key']).drop('key', axis=1)
 
 
 def hash(df, cols):
@@ -178,16 +185,19 @@ def index_changes(odf, ndf):
     index_name = ndf.index.name or 'index'
     changes = pd.DataFrame(
         ndf.index,
-        columns=[index_name]).merge(
+        columns=[index_name]
+    ).merge(
         pd.DataFrame(
             odf.index,
             columns=[index_name]),
         on=index_name,
         how='outer',
         indicator=True)
+
     changes = changes.rename(columns={'_merge': 'ChangeType'})
     changes['ChangeType'] = changes['ChangeType'].map(
         {'left_only': 'added', 'both': 'changed', 'right_only': 'removed'})
+
     return changes.set_index(index_name)
 
 
@@ -248,8 +258,7 @@ def diff_frames(odf: pd.DataFrame, ndf: pd.DataFrame,
     return combined
 
 
-def post_process_contacts(contacts: pd.DataFrame,
-                          buildings, old_rids, col_order={}):
+def post_process_contacts(contacts, buildings, old_rids, col_order={}):
     dfc = contacts
 
     # detect new-buildings

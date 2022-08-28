@@ -36,11 +36,11 @@ def corporation_count():
     df = df.groupby(['CorporationName']).size().sort_values(
         ascending=False).reset_index(name='Count')
 
-    likeness = int(request.form.get('likeness') or 0)
-    if likeness:
-        df = fuzzyfy(df, likeness)
+    similarity = float(request.form.get('similarity') or 0)
+    if similarity:
+        df = fuzzyfy(df, similarity)
     return export(
-        df, f'corporation-count-{filename(file, "registration")}-{likeness}.csv')
+        df, f'corporation-count-{filename(file, "registration")}-{similarity}.csv')
 
 
 @register
