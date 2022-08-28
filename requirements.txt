@@ -3,5 +3,5 @@ pandas
 gevent
 openpyxl
 csv-diff
+rapidfuzz
 flask_compress
-thefuzz[speedup]
