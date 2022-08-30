@@ -89,16 +89,15 @@ def compare_contacts():
         show_atleast=[*index, 'BusinessZip'],
         removed_mask=condo_coop_mask)
 
+    cols = ['BuildingID', 'Zip', 'RegistrationID']
+    additional_cols = request.form.get('building-columns')
+    if additional_cols:
+        cols += additional_cols.split(',')
+
     if not dfc.empty:
         buildings = read_csv(
             buildings,
-            usecols=[
-                'BuildingID',
-                'RegistrationID',
-                'LowHouseNumber',
-                'HighHouseNumber',
-                'StreetName',
-                'Zip'],
+            usecols=cols,
             dtype={'BuildingID': 'Int64', 'Zip': 'string'})
 
         dfc = post_process_contacts(

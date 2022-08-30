@@ -32,7 +32,7 @@ It's a utility to perform analytics on csv data. Specifically, NYC [Buildings](h
 3. Run the server using `python main.py` and head over to http://localhost:8000/ to blast away your exotic csv! 🚀 🥙
 
 ## Security
-Try to avoid saving and reading files from server storage. As of now, the primary hosting environment of this project is public on replit - making it an easy target for expolit - especially when we're dealing with the excel format. If you absolutely must do server-side file IO, thoroughly sanitize both the local and remote input to your rpc function. Once you've eliminated all potential edge cases, you'll still not be safe 👨‍💻
+Try to avoid saving and reading files from server storage. As of now, the primary hosting environment of this project is public on replit - making it an easy target for exploit - especially when we're dealing with the excel format. If you absolutely must do server-side file IO, thoroughly sanitize both the local and remote input to your rpc function. Once you've eliminated all potential edge cases, you'll still not be safe 👨‍💻
 
 ## Dataset direct links
 [All-Buildings-Subject-to-HPD-Jurisdiction](https://data.cityofnewyork.us/api/views/kj4p-ruqc/rows.csv?accessType=DOWNLOAD)

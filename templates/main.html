@@ -37,9 +37,17 @@
   <form action="/process" method="post" enctype="multipart/form-data">
     <div class="header">Compare Registrations</div>
     <input type="hidden" name="function" value="compare_contacts" />
+    <label for="building-columns">Additional Building Columns</label>
+    <input
+      name="building-columns"
+      value="LowHouseNumber,HighHouseNumber,HouseNumber,LegalClassA,StreetName"
+      title="Comma separated list of columns to show from the buildings CSV, in addition to BuildingID and Zip"
+      style="width: 85%"
+    />
     {{ forms.file(name='buildings', label='Choose buildings file...') }}
     {{ forms.file(name='contacts-old', label='Choose old contacts file...') }}
     {{ forms.file(name='contacts-new', label='Choose new contacts file...') }}
+    <!-- <br> -->
     <input type="submit" value="Process" />
   </form>
   <form action="/process" method="post" enctype="multipart/form-data">

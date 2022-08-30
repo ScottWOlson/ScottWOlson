@@ -60,7 +60,7 @@ def export(df, download_name):
 
 def fuzzyfy(df, similarity=90):
     """
-    Grouby and sum Count of fuzzyfied names:
+    Groupby and sum Count of fuzzyfied names:
     - names are pre-processed using token sort.
     - grouped together based on `similarity` factor.
     - finally, their Count is aggregated as FuzzyCount.
@@ -82,13 +82,13 @@ def fuzzyfy(df, similarity=90):
         ratios from previous iterations leads to a worse similarity score,
         the time complexity may be substantially improved.
         Indel/Levenshtein edit distancing is a lossy operation by nature
-        but, perhaps a upper bound exists to help filter similar ratios
+        but, perhaps an upper bound exists to help filter similar ratios
         for successive iterations. With the right ordering of names, exponential decay
         of comparison input size will result in a different function class altogether!
 
     Parameters
     ----------
-    df        : dataframe with Name: string, Count: number columns
+    df          : dataframe with Name: string, Count: number columns
     similarity  : number between 0-100; names to be considered within the same group,
                 if they are `similarity` percent match
 
