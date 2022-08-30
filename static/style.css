@@ -1,0 +1,36 @@
+body {
+  margin: 0;
+  padding: 1.5rem;
+  font: 1rem/1.5 'PT Sans', Arial, sans-serif;
+  color: #1c0221;
+  display: grid;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+@media screen and (min-width: 800px) {
+  body {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.header {
+  font-size: larger;
+}
+
+form input[type='text'] {
+  margin: 0.35rem 0;
+}
+
+.file {
+  margin: 0.35rem 0;
+}
+
+.file-label:hover .file-cta {
+  background-color: #c5c9a4;
+}
+
+input:not([type="file"]) {
+  margin: 0.35rem 0;
+}
