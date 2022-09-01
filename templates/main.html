@@ -38,6 +38,14 @@
       title="Comma separated list of case-insensitive keywords to ignore when computing fuzzy similarity"
       style="width: 85%"
     />
+    <label for="building-columns">Building Columns</label>
+    <input
+      name="building-columns"
+      value="LegalClassA"
+      title="Comma separated list of columns to sum from buildings CSV"
+      style="width: 85%"
+    />
+    {{ forms.file(name='buildings', label='Choose a buildings file...') }}
     {{ forms.file(name='registration', label='Choose a contacts file...') }}
     <label for="similarity">Similarity</label>
     <input

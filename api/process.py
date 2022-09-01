@@ -1,4 +1,5 @@
 from flask import request, abort
+import pandas as pd
 from .utils import (
     diff,
     export,
@@ -8,9 +9,10 @@ from .utils import (
     parse_list,
     diff_frames,
     condo_coop_mask,
-    not_contains_mask,
     prepare_contacts,
-    post_process_contacts)
+    post_process_contacts,
+    prepare_corporation_count,
+)
 
 
 RPC = dict()
@@ -23,29 +25,15 @@ def register(fn):
 
 @register
 def corporation_count():
-    file = request.files.get('registration')
-    dtype = {
-        'RegistrationID': 'Int64',
-        'CorporationName': 'string',
-        'ContactDescription': 'string'}
-    df = read_csv(
-        file,
-        usecols=dtype.keys(),
-        dtype=dtype).dropna(
-        subset='CorporationName')
-
-    # extract relevant subset
-    df = df[condo_coop_mask(df)]
-    df = df[not_contains_mask(df['CorporationName'],
-                              parse_list(request.form.get('filter-keywords')),
-                              regex=False, case=False)]
-    df = df[['RegistrationID', 'CorporationName']].drop_duplicates()
-
-    # sorting has added benefit of optimizing fuzzyfy:
-    # assuming names that repeat most often also contain the largest
-    # number of spelling errors.
-    df = df.groupby(['CorporationName']).size().sort_values(
-        ascending=False).reset_index(name='Count')
+    contacts_file = request.files.get('registration')
+    buildings_file = request.files.get('buildings')
+    building_cols = parse_list(request.form.get('building-columns'))
+    filter_keywords = parse_list(request.form.get('filter-keywords'))
+    df = prepare_corporation_count(
+        contacts_file,
+        buildings_file,
+        building_cols,
+        filter_keywords)
 
     similarity = float(request.form.get('similarity') or 0)
     if similarity:
@@ -53,7 +41,7 @@ def corporation_count():
             df, similarity,
             parse_list(request.form.get('ignore-keywords')))
     return export(
-        df, f'corporation-count-{filename(file, "registration")}-{similarity}.csv')
+        df, f'corporation-count-{filename(contacts_file, "registration")}-{similarity}.csv')
 
 
 @register

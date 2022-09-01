@@ -12,9 +12,13 @@ def read_csv(file, default_dtype=None, dtype=None, lower_case=False, **kwargs):
     if default_dtype:
         header = pd.read_csv(file, nrows=0)
         file.seek(0)
-        dtype = dict.fromkeys(
-            header.columns.difference(
-                dtype.keys()), default_dtype)
+        dtypes = dtype or {}
+        dtype = {
+            **dict.fromkeys(
+                header.columns.difference(
+                    dtypes.keys()), default_dtype),
+            **dtypes
+        }
 
     df = pd.read_csv(file, dtype=dtype, **kwargs)
 
@@ -62,6 +66,59 @@ def export(df, download_name):
                      as_attachment=True, mimetype=mimetype[ext])
 
 
+def condo_coop_mask(df):
+    condo_coop = df['ContactDescription'].str.lower().isin([
+        'condo', 'co-op'])
+    return condo_coop
+
+
+def not_contains_mask(series, keywords=[], **contains_args):
+    mask = True
+    for word in keywords:
+        mask &= ~series.str.contains(word, **contains_args)
+    return mask
+
+def prepare_corporation_count(
+        contacts_file, buildings_file,
+        building_cols, filter_keywords):
+    dtype = {
+        'RegistrationID': 'Int64',
+        'CorporationName': 'string',
+        'ContactDescription': 'string'}
+    df = read_csv(
+        contacts_file,
+        usecols=dtype.keys(),
+        dtype=dtype).dropna(
+        subset='CorporationName')
+
+    # extract relevant subset
+    df = df[condo_coop_mask(df)]
+    df = df[not_contains_mask(df['CorporationName'], filter_keywords,
+                              regex=False, case=False)]
+    df = df[['RegistrationID', 'CorporationName']].drop_duplicates()
+
+    dfbs = None
+    if building_cols:
+        buildings = read_csv(
+            buildings_file,
+            usecols=building_cols + ['RegistrationID'],
+            dtype='Int64')
+        dfbs = df.merge(
+            buildings,
+            on='RegistrationID').drop(
+            'RegistrationID',
+            axis=1)
+        dfbs = dfbs.groupby('CorporationName').sum()
+
+    count = df.groupby('CorporationName').size().rename('Count')
+    # sorting has added benefit of optimizing fuzzyfy:
+    # assuming names that repeat most often also contain the largest
+    # number of spelling errors.
+    count = count.sort_values(ascending=False)
+
+    return pd.concat((count, dfbs), axis=1).fillna(0).reset_index()
+
+
 def fuzzyfy(df, similarity=90, ignore_keywords=[]):
     """
     Groupby and sum Count of fuzzyfied names:
@@ -87,19 +144,23 @@ def fuzzyfy(df, similarity=90, ignore_keywords=[]):
         the time complexity may be substantially improved.
         Indel/Levenshtein edit distancing is a lossy operation by nature
         but, perhaps an upper bound exists to help filter similar ratios
-        for successive iterations. With the right ordering of names, non-linear decay
-        of comparison input size will result in a different function class altogether!
+        for successive iterations. With the right ordering of names,
+        initial-size-dependent decay will result in a different function class altogether!
+        Specifically, for a given distribution, we generate the maximally decaying curve Ψ(i, n),
+        where Ψ is the comparison input size at ith iteration starting with n names.
+        Then, the time complexity can be expressed as Ω(integral(0, n, Ψ(i,n)·di)).
 
     Parameters
     ----------
-    df               : dataframe with Name: string, Count: number columns
+    df               : dataframe with Name: string, Count: number, *ExtraColumns: number columns
     similarity       : number between 0-100; names to be considered within the same group,
         if they are `similarity` percent match
-    ignore_keywords  : keywords that get pre-processed into empty string. 
+    ignore_keywords  : keywords that get pre-processed into empty string before ratio computation.
 
     Returns
     -------
-    dataframe with FuzzyName, FuzzyCount, Name, Count columns
+    dataframe with FuzzyName, FuzzyCount, *FuzzySumExtraColumns,
+                   Name, Count, *ExtraColumns, Similarity columns
 
     """
     def process_name(s: str):
@@ -111,14 +172,14 @@ def fuzzyfy(df, similarity=90, ignore_keywords=[]):
             return " ".join(sorted(processed.split()))
         return s
 
-    name_col, count_col = df.columns
+    size = len(df.columns)
+    pd_nas = (pd.NA,) * size
     # we got memory but no time! 🏃
-    compare = dict(df[name_col].apply(process_name))
+    compare = dict(df[df.columns[0]].apply(process_name))
     rows = list(df.values)
-
     for k, row in enumerate(rows):
         # ignore if already processed
-        if len(row) > 2:
+        if len(row) > size:
             continue
 
         matches = process.extract(
@@ -129,27 +190,34 @@ def fuzzyfy(df, similarity=90, ignore_keywords=[]):
             scorer=fuzz.ratio,
             score_cutoff=similarity)
 
-        fuzzy_count = 0
+        # Steering away from dataframe indexing required when groupby.agg was used,
+        # provided considerable performance benefit. Now with rapidfuzz,
+        # we may switch back to pandas aggregation to improve readability.
+        # Although, customized sorting is still best performed on df.values.
         fuzzy_name = row[0]
+        fuzzy_sums = [0] * (size - 1)
         for (_, score, key) in matches:
-            name, count = rows[key]
-            rows[key] = (pd.NA, pd.NA, name, count, score, k)
-            fuzzy_count += count
+            _, *values = rows[key]
+            rows[key] = pd_nas + (*rows[key], score, k)
+            for i, val in enumerate(values):
+                fuzzy_sums[i] += val
             compare.pop(key, None)
 
         # set fuzzy name row
-        rows[k] = (fuzzy_name, fuzzy_count) + rows[k][2:]
+        rows[k] = (fuzzy_name, *fuzzy_sums) + rows[k][size:]
 
     def sort(row):
-        name, count, score, key = row[2:]
-        fuzzy_name, fuzzy_count = rows[key][0:2]
-        break_tie_eq_fzname_fzcount = fuzzy_count + 1 if fuzzy_name == name else count
-        return (fuzzy_count, fuzzy_name,
-                break_tie_eq_fzname_fzcount, score, name)
+        name, count, *extras, score, key = row[size:]
+        fuzzy_name, fuzzy_count, *fuzzy_sums = rows[key][0:size]
+        break_tie_eq_fuzzy_values = fuzzy_count + 1 if fuzzy_name == name else count
+        return (fuzzy_count, *fuzzy_sums, fuzzy_name,
+                break_tie_eq_fuzzy_values, *extras, score, name)
 
-    return pd.DataFrame(sorted(rows, key=sort, reverse=True), columns=[
-                        f'Fuzzy{name_col}', f'Fuzzy{count_col}',
-                        name_col, count_col, 'Similarity', 'key']).drop('key', axis=1)
+    cols = tuple(df.columns.map(lambda col: f'Fuzzy{col}')) + \
+        tuple(df.columns) + ('Similarity', 'key')
+
+    return pd.DataFrame(sorted(rows, key=sort, reverse=True),
+                        columns=cols).drop('key', axis=1)
 
 
 def hash(df, cols):
@@ -170,18 +238,6 @@ def dedup(df, index):
                              .sort_values())).reset_index()
     return pd.concat([df[~duplicated], nodupes])
 
-
-def condo_coop_mask(df):
-    condo_coop = df['ContactDescription'].str.lower().isin([
-        'condo', 'co-op'])
-    return condo_coop
-
-
-def not_contains_mask(series, keywords=[], **contains_args):
-    mask = True
-    for word in keywords:
-        mask &= ~series.str.contains(word, **contains_args)
-    return mask
 
 
 def prepare_contacts(contacts, index, old=False):
