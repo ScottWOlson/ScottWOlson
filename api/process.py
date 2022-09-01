@@ -60,7 +60,7 @@ def compare_contacts():
     ]
 
     read_contacts_args = {
-        # 'lower_case': True
+        # 'lower_case': True,
         # 'default_dtype': 'string',
         'dtype': {
             'RegistrationContactID': 'Int64',
@@ -90,6 +90,9 @@ def compare_contacts():
         show_atleast=[*index, 'BusinessZip'],
         removed_mask=condo_coop_mask)
 
+    del contacts_old
+    del contacts_new
+
     cols = ['BuildingID', 'Zip', 'RegistrationID'] + \
         parse_list(request.form.get('building-columns'))
 
@@ -104,5 +107,8 @@ def compare_contacts():
             buildings,
             old_rids=old_rids,
             col_order={'first': ['ChangeType', *index], 'last': ['BusinessZip', 'Zip', 'ZipMatch']})
+        
+        del buildings
+        del old_rids
 
     return export(dfc, f'compare-{old_name}-{new_name}.xlsx')
