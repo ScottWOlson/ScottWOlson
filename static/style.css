@@ -6,7 +6,7 @@ body {
   display: grid;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
+  gap: 2rem;
 }
 
 @media screen and (min-width: 800px) {
@@ -28,6 +28,10 @@ body {
   background-color: #c5c9a4;
 }
 
-input:not([type="file"]) {
-  margin: 0.15rem 0;
+input {
+  margin-bottom: 0.35rem;
+}
+
+input[type="submit"] {
+  margin: 0.20rem 0;
 }
