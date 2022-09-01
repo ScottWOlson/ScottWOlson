@@ -59,25 +59,8 @@ def compare_contacts():
         'LastName'
     ]
 
-    read_contacts_args = {
-        # 'lower_case': True,
-        # 'default_dtype': 'string',
-        'dtype': {
-            'RegistrationContactID': 'Int64',
-            'RegistrationID': 'Int64'
-        },
-    }
-    contacts_old = prepare_contacts(
-        read_csv(
-            contacts_old,
-            **read_contacts_args),
-        index,
-        old=True)
-    contacts_new = prepare_contacts(
-        read_csv(
-            contacts_new,
-            **read_contacts_args),
-        index)
+    contacts_old = prepare_contacts(contacts_old, index)
+    contacts_new = prepare_contacts(contacts_new, index, new=True)
 
     # copy not necessary at this point but
     # in case diff alters contacts df in future
@@ -100,14 +83,14 @@ def compare_contacts():
         buildings = read_csv(
             buildings,
             usecols=cols,
-            dtype={'BuildingID': 'Int64', 'Zip': 'string'})
+            dtype={'BuildingID': 'UInt32', 'RegistrationID': 'UInt32', 'Zip': 'string'})
 
         dfc = post_process_contacts(
             dfc,
             buildings,
             old_rids=old_rids,
             col_order={'first': ['ChangeType', *index], 'last': ['BusinessZip', 'Zip', 'ZipMatch']})
-        
+
         del buildings
         del old_rids
 

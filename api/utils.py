@@ -7,6 +7,17 @@ from rapidfuzz.utils import default_process as rapidfuzz_process
 from typing import Callable
 
 
+def lower_case(df):
+    def lower(col):
+        if col.dtype == 'string':
+            return col.str.lower()
+        elif col.dtype == 'object':
+            return col.map(lambda s: s.lower() if isinstance(
+                s, str) else s, na_action='ignore')
+        return col
+    return df.apply(lower)
+
+
 def read_csv(file, default_dtype=None, dtype=None, lower_case=False, **kwargs):
     if default_dtype:
         header = pd.read_csv(file, nrows=0)
@@ -22,10 +33,7 @@ def read_csv(file, default_dtype=None, dtype=None, lower_case=False, **kwargs):
     df = pd.read_csv(file, dtype=dtype, **kwargs)
 
     if lower_case:
-        df = df.apply(
-            lambda col: col.astype('string').str.lower() if (
-                col.dtype == 'string') or (
-                col.dtype == 'object') else col)
+        df = lower_case(df)
 
     return df
 
@@ -82,7 +90,7 @@ def prepare_corporation_count(
         contacts_file, buildings_file,
         building_cols, filter_keywords):
     dtype = {
-        'RegistrationID': 'Int64',
+        'RegistrationID': 'UInt32',
         'CorporationName': 'string',
         'ContactDescription': 'string'}
     df = read_csv(
@@ -102,7 +110,7 @@ def prepare_corporation_count(
         buildings = read_csv(
             buildings_file,
             usecols=building_cols + ['RegistrationID'],
-            dtype='Int64')
+            dtype='UInt32')
         dfbs = df.merge(
             buildings,
             on='RegistrationID').drop(
@@ -239,17 +247,17 @@ def dedup(df, index):
     return pd.concat([df[~duplicated], nodupes])
 
 
-def prepare_contacts(contacts, index, old=False):
-    dfc = contacts
-    if not old:
+def prepare_contacts(contacts_file, index, new=False):
+    dfc = pd.read_csv(contacts_file, dtype={
+        'RegistrationContactID': 'UInt32',
+        'RegistrationID': 'UInt32'
+    })
+    if new:
         dfc = dfc[condo_coop_mask(dfc)]
-
-    dfc = dfc.drop_duplicates()
+    dfc = lower_case(dfc).drop_duplicates()
     # concat values for duplicate index rows
     dfc = dedup(dfc, index)
-    dfc = dfc.set_index(pd.Index(hash(dfc, index), name='hash'))
-
-    return dfc
+    return dfc.set_index(pd.Index(hash(dfc, index), name='hash'))
 
 
 def index_changes(odf, ndf):
