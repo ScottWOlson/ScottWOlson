@@ -169,7 +169,7 @@ def fuzzyfy(df, similarity=90, ignore_keywords=[]):
             # faster than regex
             for word in ignore_keywords:
                 processed = processed.replace(word, '')
-            return " ".join(sorted(processed.split()))
+            return processed
         return s
 
     size = len(df.columns)
@@ -187,8 +187,8 @@ def fuzzyfy(df, similarity=90, ignore_keywords=[]):
             compare,
             limit=None,
             processor=None,
-            scorer=fuzz.ratio,
-            score_cutoff=similarity)
+            score_cutoff=similarity,
+            scorer=fuzz.token_set_ratio)
 
         # Steering away from dataframe indexing required when groupby.agg was used,
         # provided considerable performance benefit. Now with rapidfuzz,
