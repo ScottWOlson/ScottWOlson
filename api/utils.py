@@ -27,6 +27,10 @@ def read_csv(file, default_dtype=None, dtype=None, lower_case=False, **kwargs):
     return df
 
 
+def parse_list(string):
+    return string.split(',') if string else []
+
+
 def filename(file, default=''):
     return path.splitext(path.basename(
         getattr(file, 'filename') or default))[0]
@@ -58,7 +62,7 @@ def export(df, download_name):
                      as_attachment=True, mimetype=mimetype[ext])
 
 
-def fuzzyfy(df, similarity=90):
+def fuzzyfy(df, similarity=90, ignore_keywords=[]):
     """
     Groupby and sum Count of fuzzyfied names:
     - names are pre-processed using token sort.
@@ -83,23 +87,29 @@ def fuzzyfy(df, similarity=90):
         the time complexity may be substantially improved.
         Indel/Levenshtein edit distancing is a lossy operation by nature
         but, perhaps an upper bound exists to help filter similar ratios
-        for successive iterations. With the right ordering of names, exponential decay
+        for successive iterations. With the right ordering of names, non-linear decay
         of comparison input size will result in a different function class altogether!
 
     Parameters
     ----------
-    df          : dataframe with Name: string, Count: number columns
-    similarity  : number between 0-100; names to be considered within the same group,
-                if they are `similarity` percent match
+    df               : dataframe with Name: string, Count: number columns
+    similarity       : number between 0-100; names to be considered within the same group,
+        if they are `similarity` percent match
+    ignore_keywords  : keywords that get pre-processed into empty string. 
 
     Returns
     -------
     dataframe with FuzzyName, FuzzyCount, Name, Count columns
 
     """
-    def process_name(s):
+    def process_name(s: str):
         processed = rapidfuzz_process(s)
-        return " ".join(sorted(processed.split())) if processed else s
+        if processed:
+            # faster than regex
+            for word in ignore_keywords:
+                processed = processed.replace(word, '')
+            return " ".join(sorted(processed.split()))
+        return s
 
     name_col, count_col = df.columns
     # we got memory but no time! 🏃
@@ -108,7 +118,7 @@ def fuzzyfy(df, similarity=90):
 
     for k, row in enumerate(rows):
         # ignore if already processed
-        if isinstance(row, tuple):
+        if len(row) > 2:
             continue
 
         matches = process.extract(
@@ -167,9 +177,15 @@ def condo_coop_mask(df):
     return condo_coop
 
 
+def not_contains_mask(series, keywords=[], **contains_args):
+    mask = True
+    for word in keywords:
+        mask &= ~series.str.contains(word, **contains_args)
+    return mask
+
+
 def prepare_contacts(contacts, index, old=False):
     dfc = contacts
-    # extract relevant subset
     if not old:
         dfc = dfc[condo_coop_mask(dfc)]
 

@@ -5,8 +5,10 @@ from .utils import (
     fuzzyfy,
     read_csv,
     filename,
+    parse_list,
     diff_frames,
     condo_coop_mask,
+    not_contains_mask,
     prepare_contacts,
     post_process_contacts)
 
@@ -26,8 +28,17 @@ def corporation_count():
         'RegistrationID': 'Int64',
         'CorporationName': 'string',
         'ContactDescription': 'string'}
-    df = read_csv(file, usecols=list(dtype.keys()), dtype=dtype)
+    df = read_csv(
+        file,
+        usecols=dtype.keys(),
+        dtype=dtype).dropna(
+        subset='CorporationName')
+
+    # extract relevant subset
     df = df[condo_coop_mask(df)]
+    df = df[not_contains_mask(df['CorporationName'],
+                              parse_list(request.form.get('filter-keywords')),
+                              regex=False, case=False)]
     df = df[['RegistrationID', 'CorporationName']].drop_duplicates()
 
     # sorting has added benefit of optimizing fuzzyfy:
@@ -38,7 +49,9 @@ def corporation_count():
 
     similarity = float(request.form.get('similarity') or 0)
     if similarity:
-        df = fuzzyfy(df, similarity)
+        df = fuzzyfy(
+            df, similarity,
+            parse_list(request.form.get('ignore-keywords')))
     return export(
         df, f'corporation-count-{filename(file, "registration")}-{similarity}.csv')
 
@@ -57,14 +70,16 @@ def compare_contacts():
         'RegistrationID',
         'FirstName',
         'MiddleInitial',
-        'LastName']
+        'LastName'
+    ]
 
     read_contacts_args = {
         # 'lower_case': True
         # 'default_dtype': 'string',
         'dtype': {
             'RegistrationContactID': 'Int64',
-            'RegistrationID': 'Int64'},
+            'RegistrationID': 'Int64'
+        },
     }
     contacts_old = prepare_contacts(
         read_csv(
@@ -89,10 +104,8 @@ def compare_contacts():
         show_atleast=[*index, 'BusinessZip'],
         removed_mask=condo_coop_mask)
 
-    cols = ['BuildingID', 'Zip', 'RegistrationID']
-    additional_cols = request.form.get('building-columns')
-    if additional_cols:
-        cols += additional_cols.split(',')
+    cols = ['BuildingID', 'Zip', 'RegistrationID'] + \
+        parse_list(request.form.get('building-columns'))
 
     if not dfc.empty:
         buildings = read_csv(

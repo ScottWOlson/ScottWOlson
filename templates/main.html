@@ -22,6 +22,22 @@
   <form action="/process" method="post" enctype="multipart/form-data">
     <div class="header">Fuzzy Corporation Count</div>
     <input type="hidden" name="function" value="corporation_count" />
+    <div>
+      <label for="filter-keywords">Filter Keywords</label>
+      <input
+        name="filter-keywords"
+        value="street,condominium"
+        title="Comma separated list of case-insensitive keywords to discard corporation names that contain them"
+        style="width: 85%"
+      />
+    </div>
+    <label for="ignore-keywords">Ignore Keywords</label>
+    <input
+      name="ignore-keywords"
+      value="property,management,services,corp,inc,real estate"
+      title="Comma separated list of case-insensitive keywords to ignore when computing fuzzy similarity"
+      style="width: 85%"
+    />
     {{ forms.file(name='registration', label='Choose a contacts file...') }}
     <label for="similarity">Similarity</label>
     <input
