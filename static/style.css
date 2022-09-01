@@ -4,7 +4,7 @@ body {
   font: 1rem/1.5 'PT Sans', Arial, sans-serif;
   color: #1c0221;
   display: grid;
-  align-items: center;
+  align-items: top;
   justify-content: center;
   gap: 2rem;
 }

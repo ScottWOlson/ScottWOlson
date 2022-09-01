@@ -28,7 +28,7 @@
         name="filter-keywords"
         value="street,condominium"
         title="Comma separated list of case-insensitive keywords to discard corporation names that contain them"
-        style="width: 85%"
+        style="width: 90%"
       />
     </div>
     <div>
@@ -37,7 +37,7 @@
         name="ignore-keywords"
         value="property,management,services,corp,inc,real estate"
         title="Comma separated list of case-insensitive keywords to ignore when computing fuzzy similarity"
-        style="width: 85%"
+        style="width: 90%"
       />
     </div>
     <div>
@@ -46,12 +46,12 @@
         name="building-columns"
         value="LegalClassA"
         title="Comma separated list of columns to sum from buildings CSV"
-        style="width: 85%"
+        style="width: 90%"
       />
     </div>
     {{ forms.file(name='buildings', label='Choose a buildings file...') }}
     {{ forms.file(name='registration', label='Choose a contacts file...') }}
-    <div>
+    <div style="margin-top: 0.7rem">
       <label for="similarity">Similarity</label>
       <input
         min="0"
@@ -73,25 +73,12 @@
         name="building-columns"
         value="LowHouseNumber,HighHouseNumber,HouseNumber,LegalClassA,StreetName"
         title="Comma separated list of columns to show from the buildings CSV, in addition to BuildingID and Zip"
-        style="width: 85%"
+        style="width: 90%"
       />
     </div>
     {{ forms.file(name='buildings', label='Choose buildings file...') }}
     {{ forms.file(name='contacts-old', label='Choose old contacts file...') }}
     {{ forms.file(name='contacts-new', label='Choose new contacts file...') }}
-    <!-- <br> -->
-    <input type="submit" value="Process" />
-  </form>
-  <form action="/process" method="post" enctype="multipart/form-data">
-    <div class="header">Compare Arbitrary CSVs</div>
-    <input type="hidden" name="function" value="compare" />
-    {{ forms.file(name='old', label='Choose old file...') }}
-    {{ forms.file(name='new', label='Choose new file...') }}
-    <input
-      name="index-column"
-      value="IndexID"
-      title="Index column to compare against"
-    />
     <input type="submit" value="Process" />
   </form>
   <script src="/static/index.js"></script>

@@ -1,8 +1,7 @@
 import pandas as pd
 from os import path
+from io import BytesIO
 from flask import send_file
-from io import TextIOWrapper, BytesIO
-from csv_diff import load_csv, compare
 from rapidfuzz import fuzz, process
 from rapidfuzz.utils import default_process as rapidfuzz_process
 from typing import Callable
@@ -77,6 +76,7 @@ def not_contains_mask(series, keywords=[], **contains_args):
     for word in keywords:
         mask &= ~series.str.contains(word, **contains_args)
     return mask
+
 
 def prepare_corporation_count(
         contacts_file, buildings_file,
@@ -239,7 +239,6 @@ def dedup(df, index):
     return pd.concat([df[~duplicated], nodupes])
 
 
-
 def prepare_contacts(contacts, index, old=False):
     dfc = contacts
     if not old:
@@ -359,32 +358,3 @@ def post_process_contacts(contacts, buildings, old_rids, col_order={}):
     dfc = dfc.reindex(columns=columns, level=0, copy=False)
 
     return dfc
-
-
-def diff(old_file, new_file, index=None, show_atleast=None):
-    if not show_atleast and index:
-        show_atleast = [index]
-    difference = compare(load_csv(TextIOWrapper(old_file), key=index),
-                         load_csv(TextIOWrapper(new_file), key=index),
-                         show_unchanged=bool(show_atleast))
-    changed = list(
-        map(lambda row:
-            {
-                'ChangeType': 'changed',
-                **{col: row['unchanged'][col] for col in show_atleast},
-                **{
-                    col: ' -> '.join(change) for col, change in row['changes'].items()
-                }
-            },
-            difference['changed']))
-    added = list(
-        map(lambda row: {**row, 'ChangeType': 'added'}, difference['added']))
-    removed = list(
-        map(lambda row: {**row, 'ChangeType': 'removed'}, difference['removed']))
-
-    df = pd.DataFrame(changed + added + removed)
-    if difference['columns_added']:
-        df['ColumnsAdded'] = pd.Series(difference['columns_added'])
-    if difference['columns_removed']:
-        df['ColumnsRemoved'] = pd.Series(difference['columns_removed'])
-    return df

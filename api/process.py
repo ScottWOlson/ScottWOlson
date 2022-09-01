@@ -1,7 +1,5 @@
-from flask import request, abort
-import pandas as pd
+from flask import request
 from .utils import (
-    diff,
     export,
     fuzzyfy,
     read_csv,
@@ -108,20 +106,3 @@ def compare_contacts():
             col_order={'first': ['ChangeType', *index], 'last': ['BusinessZip', 'Zip', 'ZipMatch']})
 
     return export(dfc, f'compare-{old_name}-{new_name}.xlsx')
-
-
-@register
-def compare():
-    index = request.form.get('index-column')
-    if not index:
-        abort(400, 'Index column is required! 👉👈')
-
-    old_file = request.files.get('old')
-    new_file = request.files.get('new')
-
-    old_name = filename(old_file, 'old')
-    new_name = filename(new_file, 'new')
-
-    df = diff(old_file, new_file, index)
-
-    return export(df, f'compare-{old_name}-{new_name}.csv')
