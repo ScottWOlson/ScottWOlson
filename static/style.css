@@ -4,9 +4,9 @@ body {
   font: 1rem/1.5 'PT Sans', Arial, sans-serif;
   color: #1c0221;
   display: grid;
-  align-items: center;
+  align-items: top;
   justify-content: center;
-  gap: 1rem;
+  gap: 2rem;
 }
 
 @media screen and (min-width: 800px) {
@@ -16,11 +16,8 @@ body {
 }
 
 .header {
-  font-size: larger;
-}
-
-form input[type='text'] {
-  margin: 0.35rem 0;
+  font-size: x-large;
+  margin-bottom: 0.5rem;
 }
 
 .file {
@@ -31,6 +28,10 @@ form input[type='text'] {
   background-color: #c5c9a4;
 }
 
-input:not([type="file"]) {
-  margin: 0.35rem 0;
+input {
+  margin-bottom: 0.35rem;
+}
+
+input[type="submit"] {
+  margin: 0.20rem 0;
 }

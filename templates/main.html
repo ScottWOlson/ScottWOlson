@@ -22,36 +22,63 @@
   <form action="/process" method="post" enctype="multipart/form-data">
     <div class="header">Fuzzy Corporation Count</div>
     <input type="hidden" name="function" value="corporation_count" />
+    <div>
+      <label for="filter-keywords">Filter Keywords</label>
+      <input
+        name="filter-keywords"
+        value="street,condominium"
+        title="Comma separated list of case-insensitive keywords to discard corporation names that contain them"
+        style="width: 90%"
+      />
+    </div>
+    <div>
+      <label for="ignore-keywords">Ignore Keywords</label>
+      <input
+        name="ignore-keywords"
+        value="property,management,services,corp,inc,real estate"
+        title="Comma separated list of case-insensitive keywords to ignore when computing fuzzy similarity"
+        style="width: 90%"
+      />
+    </div>
+    <div>
+      <label for="building-columns">Building Columns</label>
+      <input
+        name="building-columns"
+        value="LegalClassA"
+        title="Comma separated list of columns to sum from buildings CSV"
+        style="width: 90%"
+      />
+    </div>
+    {{ forms.file(name='buildings', label='Choose a buildings file...') }}
     {{ forms.file(name='registration', label='Choose a contacts file...') }}
-    <label for="similarity">Similarity</label>
-    <input
-      min="0"
-      max="100"
-      value="90"
-      type="number"
-      name="similarity"
-      title="Value between 0-100. For e.g. 90 will group together names that are 90% similar"
-    /><br>
+    <div style="margin-top: 0.7rem">
+      <label for="similarity">Similarity</label>
+      <input
+        min="0"
+        max="100"
+        value="90"
+        type="number"
+        name="similarity"
+        title="Value between 0-100. For e.g. 90 will group together names that are 90% similar"
+      />
+    </div>
     <input type="submit" value="Process" />
   </form>
   <form action="/process" method="post" enctype="multipart/form-data">
     <div class="header">Compare Registrations</div>
     <input type="hidden" name="function" value="compare_contacts" />
+    <div>
+      <label for="building-columns">Additional Building Columns</label>
+      <input
+        name="building-columns"
+        value="LowHouseNumber,HighHouseNumber,HouseNumber,LegalClassA,StreetName"
+        title="Comma separated list of columns to show from the buildings CSV, in addition to BuildingID and Zip"
+        style="width: 90%"
+      />
+    </div>
     {{ forms.file(name='buildings', label='Choose buildings file...') }}
     {{ forms.file(name='contacts-old', label='Choose old contacts file...') }}
     {{ forms.file(name='contacts-new', label='Choose new contacts file...') }}
-    <input type="submit" value="Process" />
-  </form>
-  <form action="/process" method="post" enctype="multipart/form-data">
-    <div class="header">Compare Arbitrary CSVs</div>
-    <input type="hidden" name="function" value="compare" />
-    {{ forms.file(name='old', label='Choose old file...') }}
-    {{ forms.file(name='new', label='Choose new file...') }}
-    <input
-      name="index-column"
-      value="IndexID"
-      title="Index column to compare against"
-    />
     <input type="submit" value="Process" />
   </form>
   <script src="/static/index.js"></script>
