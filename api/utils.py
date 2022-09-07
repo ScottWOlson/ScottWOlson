@@ -12,22 +12,24 @@ def lower_case(df):
         if col.dtype == 'string':
             return col.str.lower()
         elif col.dtype == 'object':
-            return col.map(lambda s: s.lower() if isinstance(
-                s, str) else s, na_action='ignore')
+            return col.map(
+                lambda s:
+                    s.lower() if isinstance(s, str) else s, na_action='ignore')
         return col
     return df.apply(lower)
 
 
 def read_csv(file, default_dtype=None, dtype=None, lower_case=False, **kwargs):
     if default_dtype:
+        if not isinstance(dtype, dict):
+            raise Exception(
+                'dtype must be a dict to parse remaining columns as default_dtype')
         header = pd.read_csv(file, nrows=0)
         file.seek(0)
-        dtypes = dtype or {}
         dtype = {
             **dict.fromkeys(
-                header.columns.difference(
-                    dtypes.keys()), default_dtype),
-            **dtypes
+                header.columns.difference(dtype.keys()), default_dtype),
+            **dtype,
         }
 
     df = pd.read_csv(file, dtype=dtype, **kwargs)
@@ -69,8 +71,9 @@ mimetype = {
 
 def export(df, download_name):
     ext = extension(download_name) or 'csv'
-    return send_file(bufferize(df, ext), download_name=download_name,
-                     as_attachment=True, mimetype=mimetype[ext])
+    return send_file(bufferize(df, ext), mimetype[ext],
+                     download_name=download_name,
+                     as_attachment=True)
 
 
 def condo_coop_mask(df):
@@ -93,7 +96,7 @@ def prepare_corporation_count(
         'RegistrationID': 'UInt32',
         'CorporationName': 'string',
         'ContactDescription': 'string'}
-    df = read_csv(
+    df = pd.read_csv(
         contacts_file,
         usecols=dtype.keys(),
         dtype=dtype).dropna(
@@ -107,7 +110,7 @@ def prepare_corporation_count(
 
     dfbs = None
     if building_cols:
-        buildings = read_csv(
+        buildings = pd.read_csv(
             buildings_file,
             usecols=building_cols + ['RegistrationID'],
             dtype='UInt32')
@@ -124,15 +127,17 @@ def prepare_corporation_count(
     # number of spelling errors.
     count = count.sort_values(ascending=False)
 
-    return pd.concat((count, dfbs), axis=1).fillna(0).reset_index()
+    return pd.concat([count, dfbs], axis=1).fillna(0).reset_index()
 
 
 def fuzzyfy(df, similarity=90, ignore_keywords=[]):
     """
-    Groupby and sum Count of fuzzyfied names:
-    - names are pre-processed using token sort.
-    - grouped together based on `similarity` factor.
-    - finally, their Count is aggregated as FuzzyCount.
+    Groupby fuzzyfied names and aggregate Count and optional summable columns:
+    - names are lowercased,
+        stripped of non-alphanumeric, whitespaces and `ignore_keywords`.
+    - grouped together based on `similarity`.
+    - finally, their Count and *ExtraColumns
+        are aggregated as FuzzyCount and *FuzzySumExtraColumns.
 
     Complexity:
         Each iteration removes matched names from comparison.
@@ -198,10 +203,11 @@ def fuzzyfy(df, similarity=90, ignore_keywords=[]):
             score_cutoff=similarity,
             scorer=fuzz.token_set_ratio)
 
-        # Steering away from dataframe indexing required when groupby.agg was used,
-        # provided considerable performance benefit. Now with rapidfuzz,
-        # we may switch back to pandas aggregation to improve readability.
-        # Although, customized sorting is still best performed on df.values.
+        # Steering away from dataframe indexing - required when groupby.agg
+        # was used - provided considerable performance benefit in the past.
+        # Now with rapidfuzz, we may switch back to pandas aggregation
+        # to improve readability. But, customized sorting
+        # is still best performed on df.values.
         fuzzy_name = row[0]
         fuzzy_sums = [0] * (size - 1)
         for (_, score, key) in matches:
@@ -221,20 +227,25 @@ def fuzzyfy(df, similarity=90, ignore_keywords=[]):
         return (fuzzy_count, *fuzzy_sums, fuzzy_name,
                 break_tie_eq_fuzzy_values, *extras, score, name)
 
-    cols = tuple(df.columns.map(lambda col: f'Fuzzy{col}')) + \
+    columns = tuple(df.columns.map(lambda col: f'Fuzzy{col}')) + \
         tuple(df.columns) + ('Similarity', 'key')
 
     return pd.DataFrame(sorted(rows, key=sort, reverse=True),
-                        columns=cols).drop('key', axis=1)
+                        columns=columns).drop('key', axis=1)
 
 
 def hash(df, cols):
-    return df[cols].fillna('').astype('string').sum(axis=1)
+    df = df[cols].astype('string').fillna('')
+    combined = df[cols[0]]
+    for col in cols[1:]:
+        combined += df[col]
+    return combined
 
 
 def dedup(df, index):
     """
     concat duplicate column values when grouped by index
+
     """
     # split -> str groupby smaller subset -> merge back for performance
     duplicated = df.duplicated(subset=index, keep=False)
@@ -242,8 +253,9 @@ def dedup(df, index):
     if dupes.empty:
         return df
     nodupes = dupes.groupby(index, dropna=False).agg(
-        lambda x: ' | '.join(x.dropna().astype(str).str.lower().drop_duplicates()
-                             .sort_values())).reset_index()
+        lambda x: ' | '.join(
+            x.dropna().astype(str).str.lower().drop_duplicates().sort_values()
+        )).reset_index()
     return pd.concat([df[~duplicated], nodupes])
 
 
@@ -257,7 +269,8 @@ def prepare_contacts(contacts_file, index, new=False):
     dfc = lower_case(dfc).drop_duplicates()
     # concat values for duplicate index rows
     dfc = dedup(dfc, index)
-    return dfc.set_index(pd.Index(hash(dfc, index), name='hash'))
+    index_col = pd.Index(hash(dfc, index), name='hash')
+    return dfc.set_index(index_col)
 
 
 def index_changes(odf, ndf):
@@ -322,14 +335,11 @@ def diff_frames(odf: pd.DataFrame, ndf: pd.DataFrame,
 
     # convert to multiindex for concatenation
     added.columns = added.columns.map(
-        lambda c:
-        (c, 'new') if c in changed_cols else (c, ''))
+        lambda c: (c, 'new') if c in changed_cols else (c, ''))
     removed.columns = removed.columns.map(
-        lambda c:
-        (c, 'old') if c in changed_cols else (c, ''))
+        lambda c: (c, 'old') if c in changed_cols else (c, ''))
 
-    combined = pd.concat([changed, added, removed]).dropna(
-        how='all', axis=1)
+    combined = pd.concat([changed, added, removed]).dropna(how='all', axis=1)
     combined.columns = combined.columns.remove_unused_levels()
 
     combined['ChangeType'] = cdf.loc[combined.index, 'ChangeType']
@@ -344,20 +354,21 @@ def post_process_contacts(contacts, buildings, old_rids, col_order={}):
     added = dfc['ChangeType'] == 'added'
     new_rids = ~dfc.loc[added, 'RegistrationID'].isin(old_rids)
     dfc['ChangeType'] = dfc['ChangeType'].cat.add_categories('new-building')
-    dfc.loc[pd.Series(new_rids, dfc.index).fillna(
-        False), 'ChangeType'] = 'new-building'
+    dfc.loc[
+        pd.Series(new_rids, dfc.index).fillna(False),
+        'ChangeType'] = 'new-building'
 
     # merge buildings info
     buildings.columns = buildings.columns.map(lambda c: (c, ''))
     dfc = dfc.merge(buildings, on='RegistrationID', how='left')
 
     # zip match
-    zip_match_mask = None
-    if ('BusinessZip', '') in dfc.columns:
-        zip_match_mask = dfc['BusinessZip'] == dfc['Zip']
-    else:
-        zip_match_mask = dfc[('BusinessZip', 'new')] == dfc['Zip']
-    dfc.loc[zip_match_mask, 'ZipMatch'] = 'Y'
+    biz_zip_col = ('BusinessZip', 'new')
+    if biz_zip_col not in dfc.columns:
+        biz_zip_col = 'BusinessZip'
+    dfc['Zip'] = dfc['Zip'].convert_dtypes()
+    dfc[biz_zip_col] = dfc[biz_zip_col].convert_dtypes()
+    dfc.loc[dfc[biz_zip_col] == dfc['Zip'], 'ZipMatch'] = 'Y'
 
     # rearrange columns
     first = col_order.get('first') or []
