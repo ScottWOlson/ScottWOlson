@@ -1,13 +1,14 @@
 from flask import request
-from .utils.fuzzy import fuzzyfy
-from .utils.diff import diff_frames
 from .mod import contacts, corporations
+from .utils.diff import diff_frames
+from .utils.fuzzy import fuzzyfy
 from .utils.common import (
     export,
     read_csv,
     filename,
     parse_list,
     condo_coop_mask,
+    ExportType,
 )
 
 RPC = dict()
@@ -32,12 +33,11 @@ def corporation_count():
 
     similarity = float(request.form.get('similarity') or 0)
     if similarity:
-        df = fuzzyfy(
-            df, similarity,
-            parse_list(request.form.get('ignore-keywords')))
+        ignore_keywords = parse_list(request.form.get('ignore-keywords'))
+        df = fuzzyfy(df, similarity, ignore_keywords)
 
     file_name = filename(contacts_file, 'registration')
-    return export(df, f'corporation-count-{file_name}-{similarity}.csv')
+    return export(df, f'corporation-count-{file_name}-{similarity}')
 
 
 @register
@@ -86,4 +86,9 @@ def compare_contacts():
 
         del buildings, old_rids
 
-    return export(dfc, f'compare-{old_name}-{new_name}.xlsx')
+    export_type = ExportType.EXCEL
+
+    if export_type == ExportType.EXCEL:
+        dfc = dfc.set_index('ChangeType')
+
+    return export(dfc, f'compare-{old_name}-{new_name}', export_type)

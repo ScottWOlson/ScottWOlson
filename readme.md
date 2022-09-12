@@ -1,12 +1,12 @@
 ![showcase](https://user-images.githubusercontent.com/23444983/186924328-d6439361-5fb3-45bd-a4ee-77715e588b3f.png)
 
-## Vat iz thiz?!
+## What iz thiz?!
 
 It's a utility to perform analytics on csv data. Specifically, NYC [Buildings](https://data.cityofnewyork.us/Housing-Development/Buildings-Subject-to-HPD-Jurisdiction/kj4p-ruqc/data) and [Registration](https://data.cityofnewyork.us/Housing-Development/Registration-Contacts/feu5-w2e2/data) datasets. [`pandas`](https://pandas.pydata.org/) is excellent for moderate workloads like these and as such has been integrated into the backend. To make it easier for end-user to upload and export data directly from the browser, a lightweight frontend is provided using the [Flask](https://flask.palletsprojects.com/en/2.2.x/) framework. All the IO as been abstracted away with a basic rpc endpoint at `/process`, allowing you - as a stellar developer - to simply add a form with input `name="fuction"`, `value="python-function-name"` and watch the magic unfold ✨🧝✨
 
 ### Adding a new feature walkthrough
 
-#### Suppose you wish to add the ability to count distinct column values in an uploaded csv
+#### Suppose you wish to count distinct column values in an uploaded csv
 
 1. Add the backend rpc function under `api/process.py`
    ```python
@@ -32,7 +32,7 @@ It's a utility to perform analytics on csv data. Specifically, NYC [Buildings](h
 3. Run the server using `python main.py` and head over to http://localhost:8000/ to blast away your exotic csv! 🚀 🥙
 
 ## Security
-Try to avoid saving and reading files from server storage. As of now, the primary hosting environment of this project is public on replit - making it an easy target for exploit - especially when we're dealing with the excel format. If you absolutely must do server-side file IO, thoroughly sanitize both the local and remote input to your rpc function. Once you've eliminated all potential edge cases, you'll still not be safe 👨‍💻
+Try to avoid saving and reading files from server storage. As of now, the primary hosting environment of this project is public on replit - making it an easy target for exploit - especially when we're dealing with the excel format. If you absolutely must do server-side file IO, thoroughly sanitize both the local and remote input to your rpc function.
 
 ## Dataset direct links
 [All-Buildings-Subject-to-HPD-Jurisdiction](https://data.cityofnewyork.us/api/views/kj4p-ruqc/rows.csv?accessType=DOWNLOAD)

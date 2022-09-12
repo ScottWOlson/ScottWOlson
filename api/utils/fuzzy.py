@@ -3,6 +3,7 @@ import pandas as pd
 from typing import Callable
 from rapidfuzz import fuzz, process
 from itertools import tee, chain, filterfalse
+from typing import Optional
 
 
 class IteratorWithItems:
@@ -24,8 +25,8 @@ def split(predicate, iterator):
     return filter(predicate, i1), filterfalse(predicate, i2)
 
 
-def sum_except(iterator, i):
-    return sum(iterator[:i] + iterator[i + 1:])
+def sum_except(values, i):
+    return sum(values[:i] + values[i + 1:])
 
 
 def normalize(values):
@@ -34,28 +35,30 @@ def normalize(values):
 
 
 def processor(ignore_keywords=None):
-    filter_regex = r'(?![\-.&])\W'
+    EMPTY_STRING_GROUP = '#'
+    ignore_regex = r'(?![\-.&])\W'
     if ignore_keywords:
+        ignore_keywords = sorted(ignore_keywords, key=len, reverse=True)
         ignore_keywords = '|'.join(ignore_keywords).lower()
-        filter_regex = f"{ignore_keywords}|{filter_regex}"
-    filter_regex = re.compile(filter_regex)
+        ignore_regex = f'{ignore_keywords}|{ignore_regex}'
+    ignore_regex = re.compile(ignore_regex)
 
     def process(s: str):
-        processed = filter_regex.sub(" ", s.lower())
-        processed = " ".join(sorted(processed.split()))
-        return processed if processed else s
+        processed = ignore_regex.sub(' ', s.lower())
+        processed = ' '.join(sorted(processed.split()))
+        return processed if processed else EMPTY_STRING_GROUP
 
     return process
 
 
 def weighted_extract(query, choices, processor=None,
                      score_cutoff=0, short_circuit=False,
-                     weights: tuple[float] = None,
+                     weights: Optional[tuple[float]] = None,
                      scorers: tuple[Callable] = (
                          fuzz.ratio, fuzz.token_set_ratio)):
     """
     Filter choices with averaged score based on specified scorers and weights.
-    Refer to rapidfuzz.process.extract_iter definition for details.
+    Refer to rapidfuzz.process.extract_iter for details.
     Placing slow scorers towards the end will maximize efficiency.
 
     Parameters
@@ -83,11 +86,11 @@ def weighted_extract(query, choices, processor=None,
 
     """
     if weights is None:
-        weights = tuple(map(lambda _: 1, scorers))
+        weights = map(lambda _: 1, scorers)
     weights = normalize(weights)
 
     shorted = []
-    choices_iter = choices.items() if hasattr(choices, "items") \
+    choices_iter = choices.items() if hasattr(choices, 'items') \
         else enumerate(choices)
     matches = IteratorWithItems(
         map(lambda c: ((c[0], 0), c[1]), choices_iter))
@@ -115,13 +118,13 @@ def weighted_extract(query, choices, processor=None,
             score = old_score + (score * weight)
             return ((key, score), sub_query)
 
-        matches = map(reduce, matches)
         max_remaining_score = 100 * sum(weights[i + 1:])
 
         def reachable(match, max_remaining_score=max_remaining_score):
             (_, score), _ = match
             return (score + max_remaining_score) >= score_cutoff
 
+        matches = map(reduce, matches)
         matches = filter(reachable, matches)
 
         if short_circuit:
@@ -135,7 +138,8 @@ def weighted_extract(query, choices, processor=None,
     return chain(*shorted, matches)
 
 
-def fuzzyfy(df, similarity=90, ignore_keywords: list = None):
+def fuzzyfy(df: pd.DataFrame, similarity: float = 90,
+            ignore_keywords: Optional[list] = None):
     """
     Groupby fuzzyfied names and aggregate Count and optional summable columns:
     - names are lowercased,
@@ -189,8 +193,8 @@ def fuzzyfy(df, similarity=90, ignore_keywords: list = None):
     weights = (1 - TOKEN_SET_WEIGHT, TOKEN_SET_WEIGHT)
     scorers = (fuzz.ratio, fuzz.token_set_ratio)
 
-    # we got memory but no time! 🏃
     name_col = df.columns[0]
+    # we got memory but no time! 🏃
     compare = dict(df[name_col].apply(processor(ignore_keywords)))
     rows = list(df.values)
     for k, row in enumerate(rows):

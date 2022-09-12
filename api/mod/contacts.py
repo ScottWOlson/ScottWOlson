@@ -1,8 +1,9 @@
 import pandas as pd
+from typing import Optional
 from ..utils.common import (
     dedup,
     hash_cols,
-    lower_case,
+    lowercase,
     condo_coop_mask,
 )
 
@@ -14,7 +15,7 @@ def prepare(contacts_file, index, new=False):
     })
     if new:
         dfc = dfc[condo_coop_mask(dfc)]
-    dfc = lower_case(dfc).drop_duplicates()
+    dfc = lowercase(dfc).drop_duplicates()
     # concat values for duplicate index rows
     dfc = dedup(dfc, index)
     index_col = pd.Index(hash_cols(dfc[index]), name='hash')
@@ -22,7 +23,7 @@ def prepare(contacts_file, index, new=False):
 
 
 def post_process(contacts, buildings, old_rids,
-                          col_order: dict = None):
+                 col_order: Optional[dict] = None):
     dfc = contacts
 
     # detect new-buildings
@@ -47,10 +48,10 @@ def post_process(contacts, buildings, old_rids,
 
     # rearrange columns
     if col_order is not None:
-        first = col_order.get('first') or ()
-        last = col_order.get('last') or ()
+        first = col_order.get('first', ())
+        last = col_order.get('last', ())
         columns = first + \
             (*dfc.columns.levels[0].difference(first + last),) + last
         dfc = dfc.reindex(columns=columns, level=0, copy=False)
 
-    return dfc.set_index('ChangeType')
+    return dfc

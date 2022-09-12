@@ -1,5 +1,5 @@
 import pandas as pd
-from typing import Callable
+from typing import Optional, Callable
 
 
 def index_changes(odf, ndf):
@@ -25,7 +25,7 @@ def index_changes(odf, ndf):
 def diff_frames(odf: pd.DataFrame, ndf: pd.DataFrame,
                 ignore_cols: tuple[str] = (),
                 show_atleast: tuple[str] = (),
-                removed_mask: Callable[[pd.DataFrame], pd.Series] = None):
+                removed_mask: Optional[Callable[[pd.DataFrame], pd.Series]] = None):
     """
     Compare dataframes with identical columns on index
 

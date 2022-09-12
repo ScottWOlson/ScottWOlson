@@ -1,10 +1,19 @@
 import pandas as pd
 from os import path
+from enum import Enum
 from io import BytesIO
 from flask import send_file
 
 
-def lower_case(df):
+class ExportType(Enum):
+    EXCEL = 'xlsx'
+    CSV = 'csv'
+
+    def __str__(self):
+        return self.value
+
+
+def lowercase(df):
     def lower(col):
         if col.dtype == 'string':
             return col.str.lower()
@@ -32,7 +41,7 @@ def read_csv(file, default_dtype=None, dtype=None, lower_case=False, **kwargs):
     df = pd.read_csv(file, dtype=dtype, **kwargs)
 
     if lower_case:
-        df = lower_case(df)
+        df = lowercase(df)
 
     return df
 
@@ -46,9 +55,9 @@ def filename(file, default=''):
         getattr(file, 'filename') or default))[0]
 
 
-def bufferize(df, ext='csv'):
+def bufferize(df, export_type: ExportType = ExportType.CSV):
     buffer = BytesIO()
-    if ext == 'xlsx':
+    if export_type == ExportType.EXCEL:
         df.to_excel(buffer, encoding='utf-8')
     else:
         df.to_csv(buffer, index=False, encoding='utf-8')
@@ -56,20 +65,16 @@ def bufferize(df, ext='csv'):
     return buffer
 
 
-def extension(download_name):
-    return path.splitext(download_name)[1][1:]
-
-
 mimetype = {
-    'csv': 'text/csv',
-    'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ExportType.CSV: 'text/csv',
+    ExportType.EXCEL: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 }
 
 
-def export(df, download_name):
-    ext = extension(download_name) or 'csv'
-    return send_file(bufferize(df, ext), mimetype[ext],
-                     download_name=download_name,
+def export(df: pd.DataFrame, filename: str,
+           export_type: ExportType = ExportType.CSV):
+    return send_file(bufferize(df, export_type), mimetype[export_type],
+                     download_name=f'{filename}.{export_type}',
                      as_attachment=True)
 
 
