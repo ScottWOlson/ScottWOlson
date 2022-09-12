@@ -1,9 +1,9 @@
-from flask import Flask, request, abort, render_template
-from gevent.pywsgi import WSGIServer
-from flask_compress import Compress
-from api.process import RPC
 import traceback
 from gevent import monkey
+from gevent.pywsgi import WSGIServer
+from flask_compress import Compress
+from flask import Flask, request, abort, render_template
+from api.process import RPC
 monkey.patch_all()
 
 
@@ -25,7 +25,7 @@ def process():
         return RPC.get(function)()
     except Exception as e:
         print(traceback.format_exc())
-        abort(500, f'{str(e)}\nRefresh page process same file(s) again! 🥠')
+        abort(400, f'{str(e)}\nRefresh page process same file(s) again! 🥠')
 
 
 HOST = '0.0.0.0'

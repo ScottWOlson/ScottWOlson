@@ -35,7 +35,7 @@
       <label for="ignore-keywords">Ignore Keywords</label>
       <input
         name="ignore-keywords"
-        value="property,management,services,corp,inc,real estate"
+        value="property,management,services,corporation,corp,inc,real estate"
         title="Comma separated list of case-insensitive keywords to ignore when computing fuzzy similarity"
         style="width: 90%"
       />
@@ -57,6 +57,7 @@
         min="0"
         max="100"
         value="90"
+        step="any"
         type="number"
         name="similarity"
         title="Value between 0-100. For e.g. 90 will group together names that are 90% similar"
